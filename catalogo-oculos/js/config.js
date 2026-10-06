@@ -49,18 +49,35 @@ window.U = {
   statusLabel: s => ({ pendente: 'Aguardando aprovação', aprovado: 'Aprovado', recusado: 'Recusado',
                        enviado: 'Enviado', entregue: 'Entregue', cancelado: 'Cancelado' }[s] || s),
   // Mostra a logomarca (ou o nome da loja, se o arquivo não existir) e usa como ícone da aba
-  marca: (el, textoHtml) => {
-    el.innerHTML = textoHtml;
-    if (!APP_CONFIG.logo) return;
+  marca: (el, textoHtml, logo = APP_CONFIG.logo, nome = APP_CONFIG.nomeLoja) => {
+    const vez = el._marcaVez = (el._marcaVez || 0) + 1;   // ignora carregamentos antigos
+    if (!el.querySelector('img') || !logo) el.innerHTML = textoHtml;
+    if (!logo) return;
     const im = new Image();
+    im.onerror = () => { if (vez === el._marcaVez) el.innerHTML = textoHtml; };
     im.onload = () => {
-      im.className = 'logo-img'; im.alt = APP_CONFIG.nomeLoja;
+      if (vez !== el._marcaVez) return;
+      im.className = 'logo-img'; im.alt = nome;
       el.replaceChildren(im);
       let fav = document.querySelector('link[rel=icon]');
       if (!fav) { fav = document.createElement('link'); fav.rel = 'icon'; document.head.appendChild(fav); }
       fav.href = im.src;
     };
-    im.src = APP_CONFIG.logo + '?v=' + Date.now().toString().slice(0, 7);
+    im.src = /^(data:|https?:)/.test(logo) && logo.includes('/storage/') ? logo : logo + (logo.includes('?') ? '&' : '?') + 'v=' + Date.now().toString().slice(0, 7);
+  },
+  // Aplica a aparência salva no painel (Configurações → Aparência da loja)
+  aparencia: cfg => {
+    const r = document.documentElement.style;
+    if (/^#[0-9a-f]{6}$/i.test(cfg?.cor_principal || '')) {
+      r.setProperty('--accent', cfg.cor_principal);
+      r.setProperty('--ink', `color-mix(in srgb, ${cfg.cor_principal} 50%, #0b0f12)`);   // tom escuro da mesma cor
+    }
+    if (/^#[0-9a-f]{6}$/i.test(cfg?.cor_destaque || '')) r.setProperty('--gold', cfg.cor_destaque);
+    return {
+      nome: cfg?.nome_loja || APP_CONFIG.nomeLoja,
+      logo: cfg?.logo_url || APP_CONFIG.logo,
+      whatsapp: cfg?.whatsapp || APP_CONFIG.whatsapp,
+    };
   },
   // Mesmo cálculo do servidor (calcular_pagamento). O valor oficial é sempre o do servidor.
   calcPagamento: (subtotal, f, n = 1) => {

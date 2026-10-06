@@ -153,7 +153,36 @@
 
     <!-- CONFIGURAÇÕES -->
     <section data-pane="config" class="hidden">
-      <div class="main-head"><h1>Configurações</h1></div>
+      <div class="main-head"><h1>Configurações</h1><a class="btn btn-ghost btn-sm" href="./" target="_blank">Ver a loja ↗</a></div>
+
+      <div class="panel" style="max-width:860px">
+        <h3>Aparência da loja</h3>
+        <p class="muted" style="margin:-4px 0 12px;font-size:13px">Logo, textos e cores que aparecem na loja. Ao salvar, a loja já mostra as mudanças (aperte F5 nela).</p>
+        <form id="formAparencia" class="form-grid">
+          <div class="c2" style="display:grid;gap:8px;justify-items:start">
+            <img id="aparLogoPrev" class="logo-preview" alt="Logo">
+            <small class="muted" id="aparLogoInfo"></small>
+          </div>
+          <div class="c4" style="display:grid;gap:10px;align-content:start">
+            <label>Trocar logo <small class="muted">(PNG com fundo transparente fica melhor; quadrado ou horizontal)</small>
+              <input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label>
+            <label class="check"><input type="checkbox" name="remover_logo"> Voltar para o logo padrão (arquivo logo.png do site)</label>
+          </div>
+          <label class="c3">Nome da loja <input name="nome_loja" maxlength="60" placeholder="Ex.: Invite Óculos"></label>
+          <label class="c3">WhatsApp da loja <input name="whatsapp" inputmode="numeric" placeholder="55 62 99999-9999"></label>
+          <label>Título do topo da página <input name="titulo_inicio" maxlength="90" placeholder="Encontre o óculos com a sua cara"></label>
+          <label>Texto abaixo do título <textarea name="subtitulo_inicio" maxlength="240" placeholder="Escolha o modelo e a cor, monte seu pedido e a loja confirma com você."></textarea></label>
+          <label>Texto do rodapé <input name="texto_rodape" maxlength="160" placeholder="Pedidos sujeitos à confirmação da loja"></label>
+          <label class="c3">Cor principal <small class="muted">(botões e destaques)</small>
+            <span style="display:flex;gap:8px;align-items:center;margin-top:4px"><input type="color" name="cor_principal" style="width:52px;height:40px;padding:0;border:1px solid var(--line);border-radius:8px"><span class="muted" id="aparCorP"></span></span></label>
+          <label class="c3">Cor de destaque <small class="muted">(etiquetas de desconto, contador)</small>
+            <span style="display:flex;gap:8px;align-items:center;margin-top:4px"><input type="color" name="cor_destaque" style="width:52px;height:40px;padding:0;border:1px solid var(--line);border-radius:8px"><span class="muted" id="aparCorD"></span></span></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-accent" id="btnSalvarAparencia">Salvar aparência</button>
+            <button type="button" class="btn btn-ghost" id="btnAparenciaPadrao">Restaurar textos e cores padrão</button>
+          </div>
+        </form>
+      </div>
 
       <div class="panel" style="max-width:760px">
         <h3>Exibição de preços na loja</h3>

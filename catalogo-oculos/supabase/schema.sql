@@ -1995,6 +1995,28 @@ begin
                             'erro', coalesce(r.error_msg, case when r.timed_out then 'tempo esgotado' end, left(r.content, 400)));
 end $$;
 
+-- ---------------------------------------------------------------------
+-- 12. APARÊNCIA DA LOJA — mesmo conteúdo da atualizacao-06
+-- ---------------------------------------------------------------------
+alter table configuracoes add column if not exists nome_loja        text;
+alter table configuracoes add column if not exists logo_url         text;
+alter table configuracoes add column if not exists titulo_inicio    text;
+alter table configuracoes add column if not exists subtitulo_inicio text;
+alter table configuracoes add column if not exists texto_rodape     text;
+alter table configuracoes add column if not exists whatsapp         text;
+alter table configuracoes add column if not exists cor_principal    text;
+alter table configuracoes add column if not exists cor_destaque     text;
+
+-- Valida os campos (evita cor ou WhatsApp em formato errado)
+alter table configuracoes drop constraint if exists configuracoes_cores_check;
+alter table configuracoes add constraint configuracoes_cores_check check (
+  (cor_principal is null or cor_principal ~* '^#[0-9a-f]{6}$') and
+  (cor_destaque  is null or cor_destaque  ~* '^#[0-9a-f]{6}$') and
+  (whatsapp      is null or whatsapp ~ '^[0-9]{10,15}$'));
+
+-- O admin já pode alterar a tabela configuracoes (política "config_admin")
+-- e enviar imagens para o armazenamento "produtos" (o logo fica em produtos/loja/).
+
 -- =====================================================================
 -- PRONTO! Agora crie sua conta na loja e depois rode (trocando o e-mail):
 --

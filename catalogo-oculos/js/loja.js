@@ -31,12 +31,14 @@ async function init() {
     sb.from('configuracoes').select('*').eq('id', 1).maybeSingle(),
     sb.from('formas_pagamento').select('*').eq('ativo', true).order('ordem').order('nome'),
   ]);
+  if (c.error || !cfg.data) aplicarAparencia();
   if (c.error) {
     $('#grid').innerHTML = `<p class="vazio" style="grid-column:1/-1">Não foi possível carregar o catálogo.<br><small>${esc(erro(c.error))}</small></p>`;
     return;
   }
   categorias = c.data;
   if (cfg.data) cfgLoja = cfg.data;
+  aplicarAparencia();
   formas = fp.data || [];
   $('#cartForma').innerHTML = formas.map(f => `<option value="${f.id}">${esc(f.nome)}${Number(f.desconto_percentual) ? ` (${Number(f.desconto_percentual)}% de desconto)` : ''}</option>`).join('');
   $('#lblForma').classList.toggle('hidden', !formas.length);
@@ -51,6 +53,22 @@ async function init() {
   // abrir produto direto pelo link (#produto-12)
   const m = location.hash.match(/produto-(\d+)/);
   if (m) abrirProduto(Number(m[1]));
+}
+
+// Textos, logo e cores definidos no painel (com o config.js como reserva)
+let loja = { nome: CFG.nomeLoja, logo: CFG.logo, whatsapp: CFG.whatsapp };
+function aplicarAparencia() {
+  loja = U.aparencia(cfgLoja);
+  document.title = `${loja.nome} — Catálogo de Óculos`;
+  U.marca($('#logo'), esc(loja.nome) + '<span>.</span>', loja.logo, loja.nome);
+  $('#rodapeNome').textContent = loja.nome;
+  if (cfgLoja.titulo_inicio) $('#heroTitulo').textContent = cfgLoja.titulo_inicio;
+  if (cfgLoja.subtitulo_inicio != null) {
+    $('#heroSub').textContent = cfgLoja.subtitulo_inicio;
+    $('#heroSub').classList.toggle('hidden', !cfgLoja.subtitulo_inicio);
+  }
+  if (cfgLoja.texto_rodape != null) $('#rodapeTexto').textContent = cfgLoja.texto_rodape;
+  $('#hero').classList.remove('carregando');
 }
 
 // Carrega (ou recarrega) os produtos. Os preços vêm do servidor conforme a configuração.
@@ -343,8 +361,8 @@ async function finalizar() {
   carrinho = []; salvarCarrinho(); $('#cartObs').value = '';
   $('#cartFoot').classList.add('hidden');
 
-  const zap = CFG.whatsapp
-    ? `<a class="btn btn-ok btn-block" target="_blank" rel="noopener" href="https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(
+  const zap = loja.whatsapp
+    ? `<a class="btn btn-ok btn-block" target="_blank" rel="noopener" href="https://wa.me/${loja.whatsapp}?text=${encodeURIComponent(
         `Olá! Acabei de fazer o pedido #${pedidoId} no site.\n${resumo}${pagTxt}${totalTxt}`)}">Avisar a loja pelo WhatsApp</a>` : '';
   $('#cartLista').innerHTML = `
     <div style="text-align:center;padding:40px 6px;display:grid;gap:14px">

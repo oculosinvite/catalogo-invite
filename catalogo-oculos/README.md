@@ -106,6 +106,11 @@ supabase/schema.sql banco de dados completo
 - **Pedidos → + Novo pedido** (ou "Novo pedido para este cliente" na ficha): escolha o cliente, os produtos/cores, quantidade e preço (pode ajustar), forma de pagamento e parcelas. Marque "Aprovar agora" para já baixar o estoque.
 - No detalhe de um pedido: **Ver cliente** e **Trocar cliente** (pedidos pendentes ou aprovados).
 
+## Aparência da loja (painel → Configurações)
+
+Troque o **logo** (envio direto pelo painel), o **nome da loja**, o **título** e o **texto** do topo, o **rodapé**, o **WhatsApp** e as **cores** (principal e de destaque). Salve e aperte F5 na loja.
+O `logo.png` e os dados do `js/config.js` continuam valendo como reserva, caso nada tenha sido salvo no painel.
+
 ## Situações dos pedidos (painel → Configurações)
 
 Cadastre as situações que você usa (ex.: "Recebido a enviar", "Recebido enviado", "Aguardando lente do laboratório"), com cor e se o cliente vê.

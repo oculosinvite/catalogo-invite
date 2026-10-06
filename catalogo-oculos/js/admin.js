@@ -70,12 +70,13 @@ async function carregarBase() {
 
 // Avisa se alguma atualização do banco (arquivos supabase/atualizacao-XX) não foi rodada
 async function verificarAtualizacoes() {
-  const falta = r => r.error && /PGRST20[25]|42P01|42883|does not exist|Could not find/i.test(`${r.error.code} ${r.error.message}`);
+  const falta = r => r.error && /PGRST20[0-9]|42P01|42703|42883|does not exist|Could not find/i.test(`${r.error.code} ${r.error.message}`);
   const testes = [
     ['02 (planilhas)',              sb.rpc('admin_importar_cadastro', { p_tabela: 'marcas', p_linhas: [] })],
     ['03 (atributos, preço e pagamento)', sb.from('opcoes').select('id').limit(1)],
     ['04 (clientes e pedidos pelo painel)', sb.rpc('admin_listar_clientes')],
     ['05 (situações e e-mail)',     sb.from('situacoes_pedido').select('id').limit(1)],
+    ['06 (aparência da loja)',      sb.from('configuracoes').select('logo_url').limit(1)],
   ];
   const res = await Promise.all(testes.map(([, q]) => q));
   const faltando = testes.filter((t, i) => falta(res[i])).map(t => t[0]);
@@ -680,6 +681,7 @@ $('#formMarca').onsubmit = async e => {
 async function carregarConfig() {
   const [{ data: cfg }, { data: notif }] = await Promise.all([
     sb.from('configuracoes').select('*').eq('id', 1).maybeSingle(), sb.rpc('admin_obter_notificacoes'), carregarBase()]);
+  preencherAparencia(cfg);
   preencherEmail(notif);
   renderSituacoes();
   const f = $('#formConfig');
@@ -696,6 +698,76 @@ $('#formConfig').onsubmit = async e => {
   const { error } = await sb.from('configuracoes').update(dados).eq('id', 1);
   if (error) return toast(erro(error), 'erro');
   toast('Exibição de preços salva', 'ok');
+};
+
+// ---- aparência da loja ----
+const APAR_PADRAO = { titulo_inicio: 'Encontre o óculos com a sua cara',
+  subtitulo_inicio: 'Escolha o modelo e a cor, monte seu pedido e a loja confirma com você.',
+  texto_rodape: 'Pedidos sujeitos à confirmação da loja', cor_principal: '#1f5168', cor_destaque: '#c8a882' };
+let aparLogoArquivo = null;
+
+function aplicarAparenciaPainel(cfg) {
+  const a = U.aparencia(cfg);
+  U.marca($('#logoAdmin'), esc(a.nome), a.logo, a.nome);
+  document.title = `Painel — ${a.nome}`;
+}
+function preencherAparencia(cfg) {
+  const f = $('#formAparencia'); if (!cfg) return;
+  aparLogoArquivo = null; f.logo.value = ''; f.remover_logo.checked = false;
+  f.nome_loja.value = cfg.nome_loja || CFG.nomeLoja;
+  f.whatsapp.value = cfg.whatsapp || CFG.whatsapp || '';
+  f.titulo_inicio.value = cfg.titulo_inicio ?? APAR_PADRAO.titulo_inicio;
+  f.subtitulo_inicio.value = cfg.subtitulo_inicio ?? APAR_PADRAO.subtitulo_inicio;
+  f.texto_rodape.value = cfg.texto_rodape ?? APAR_PADRAO.texto_rodape;
+  f.cor_principal.value = cfg.cor_principal || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || APAR_PADRAO.cor_principal;
+  f.cor_destaque.value = cfg.cor_destaque || getComputedStyle(document.documentElement).getPropertyValue('--gold').trim() || APAR_PADRAO.cor_destaque;
+  $('#aparCorP').textContent = f.cor_principal.value; $('#aparCorD').textContent = f.cor_destaque.value;
+  $('#aparLogoPrev').src = img(cfg.logo_url || CFG.logo);
+  $('#aparLogoInfo').textContent = cfg.logo_url ? 'Logo enviado pelo painel' : 'Logo padrão do site (logo.png)';
+  aplicarAparenciaPainel(cfg);
+}
+$('#formAparencia').logo.onchange = e => {
+  aparLogoArquivo = e.target.files[0] || null;
+  if (aparLogoArquivo) {
+    if (aparLogoArquivo.size > 2 * 1024 * 1024) { toast('Imagem muito grande (máximo 2 MB)', 'erro'); e.target.value = ''; aparLogoArquivo = null; return; }
+    $('#aparLogoPrev').src = URL.createObjectURL(aparLogoArquivo);
+    $('#aparLogoInfo').textContent = 'Novo logo (clique em Salvar)';
+    $('#formAparencia').remover_logo.checked = false;
+  }
+};
+['cor_principal', 'cor_destaque'].forEach(k => $('#formAparencia')[k].addEventListener('input', e => {
+  $(k === 'cor_principal' ? '#aparCorP' : '#aparCorD').textContent = e.target.value;
+}));
+$('#btnAparenciaPadrao').onclick = () => {
+  const f = $('#formAparencia');
+  Object.entries(APAR_PADRAO).forEach(([k, v]) => f[k].value = v);
+  $('#aparCorP').textContent = APAR_PADRAO.cor_principal; $('#aparCorD').textContent = APAR_PADRAO.cor_destaque;
+  toast('Valores padrão preenchidos. Clique em Salvar para aplicar.');
+};
+$('#formAparencia').onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target, btn = $('#btnSalvarAparencia');
+  let zap = f.whatsapp.value.replace(/\D/g, '');
+  if (zap && zap.length <= 11) zap = '55' + zap;              // sem DDI → Brasil
+  if (zap && (zap.length < 12 || zap.length > 13)) return toast('WhatsApp inválido. Use DDD + número, ex.: 62 99999-9999', 'erro');
+  const dados = {
+    nome_loja: f.nome_loja.value.trim() || null, whatsapp: zap || null,
+    titulo_inicio: f.titulo_inicio.value.trim() || null, subtitulo_inicio: f.subtitulo_inicio.value.trim(),
+    texto_rodape: f.texto_rodape.value.trim(), cor_principal: f.cor_principal.value, cor_destaque: f.cor_destaque.value,
+    atualizado_em: new Date().toISOString(),
+  };
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  try {
+    if (aparLogoArquivo) dados.logo_url = await uploadFoto(aparLogoArquivo, 'loja/logo');
+    else if (f.remover_logo.checked) dados.logo_url = null;
+    const { error } = await sb.from('configuracoes').update(dados).eq('id', 1);
+    if (error) throw error;
+    toast('Aparência salva! Atualize a loja (F5) para ver.', 'ok');
+    const { data: cfg } = await sb.from('configuracoes').select('*').eq('id', 1).maybeSingle();
+    preencherAparencia(cfg);
+  } catch (err) {
+    toast(/column|schema cache/i.test(err?.message || '') ? 'Falta rodar a atualização 06 no Supabase' : erro(err), 'erro');
+  } finally { btn.disabled = false; btn.textContent = 'Salvar aparência'; }
 };
 
 // ---- situações ----
@@ -873,4 +945,6 @@ $$('dialog').forEach(d => d.addEventListener('click', e => {
 }));
 U.marca($('#logoAdmin'), esc(CFG.nomeLoja));
 document.title = `Painel — ${CFG.nomeLoja}`;
+// aparência salva no banco (logo/nome/cores) também vale para o painel
+sb.from('configuracoes').select('*').eq('id', 1).maybeSingle().then(({ data }) => { if (data) aplicarAparenciaPainel(data); });
 verificarAcesso();
