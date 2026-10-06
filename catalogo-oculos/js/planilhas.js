@@ -86,11 +86,24 @@ const COLS = {
     ['ativo', 'Ativo', '', 'Sim ou Não.'],
     ['produtos', 'Produtos', '', 'Apenas informativo.', true],
   ],
+  atributos: [
+    ['tipo', 'Tipo', 'Novo', 'Formato, Material da armação, Material da lente ou Tipo de lente.'],
+    ['id', 'ID', '', 'Deixe vazio para cadastrar nova. Preenchido = atualiza essa opção (permite renomear; os produtos acompanham).'],
+    ['nome', 'Nome', 'Sim', ''],
+    ['ordem', 'Ordem', '', 'Posição na lista.'],
+    ['ativo', 'Ativo', '', 'Sim ou Não.'],
+    ['produtos', 'Produtos', '', 'Apenas informativo.', true],
+  ],
+  formas: [
+    ['nome', 'Nome'], ['descricao', 'Descrição'], ['desconto_percentual', 'Desconto %'], ['max_parcelas', 'Máx. parcelas'],
+    ['parcelas_sem_juros', 'Sem juros até'], ['juros_mes', 'Juros % a.m.'], ['parcela_minima', 'Parcela mínima'],
+    ['ordem', 'Ordem'], ['ativo', 'Ativo'], ['simulacao', 'Simulação R$ 300'],
+  ],
   pedidos: [
     ['pedido', 'Pedido'], ['data', 'Data'], ['status', 'Status'], ['cliente', 'Cliente'], ['email', 'E-mail'],
-    ['telefone', 'Telefone'], ['cidade', 'Cidade/UF'], ['pagamento', 'Pagamento'], ['item', 'Item'],
+    ['telefone', 'Telefone'], ['cidade', 'Cidade/UF'], ['pagamento', 'Pagamento'], ['parcelas', 'Parcelas'], ['item', 'Item'],
     ['qtd', 'Qtd'], ['preco', 'Preço unitário'], ['custo', 'Custo unitário'], ['total_item', 'Total item'],
-    ['lucro_item', 'Lucro item'], ['total_pedido', 'Total pedido'], ['rastreio', 'Rastreio'], ['obs', 'Observação'],
+    ['lucro_item', 'Lucro item'], ['subtotal', 'Subtotal pedido'], ['desconto', 'Desconto'], ['juros', 'Juros'], ['total_pedido', 'Total pedido'], ['rastreio', 'Rastreio'], ['obs', 'Observação'],
   ],
 };
 
@@ -133,6 +146,19 @@ const LINHAS = {
     if (error) throw error;
     return data.map(m => ({ ...m, produtos: (ps || []).filter(p => p.marca_id === m.id).length }));
   },
+  async atributos() {
+    const NOMES = { formato: 'Formato', material_armacao: 'Material da armação', material_lente: 'Material da lente', tipo_lente: 'Tipo de lente' };
+    const [{ data, error }, { data: ps }] = await Promise.all([
+      sb.from('opcoes').select('*').order('tipo').order('ordem').order('nome'),
+      sb.from('produtos').select('formato, material_armacao, material_lente, tipo_lente')]);
+    if (error) throw error;
+    return data.map(o => ({ ...o, tipo: NOMES[o.tipo], produtos: (ps || []).filter(p => p[o.tipo] === o.nome).length }));
+  },
+  async formas() {
+    const { data, error } = await sb.from('formas_pagamento').select('*').order('ordem');
+    if (error) throw error;
+    return data.map(f => ({ ...f, simulacao: simulacao(f).replace(/\u00a0/g, ' ') }));
+  },
   async pedidos() {
     const st = $('#fStatus').value;
     let q = sb.from('pedidos').select('*, clientes(nome, email, telefone), itens_pedido(*)').order('criado_em', { ascending: false });
@@ -143,7 +169,7 @@ const LINHAS = {
       pedido: p.id, data: new Date(p.criado_em).toLocaleString('pt-BR'), status: statusLabel(p.status),
       cliente: p.clientes?.nome, email: p.clientes?.email, telefone: p.clientes?.telefone,
       cidade: [p.endereco_entrega?.cidade, p.endereco_entrega?.uf].filter(Boolean).join('/'),
-      pagamento: p.forma_pagamento, item: i.descricao, qtd: i.quantidade, preco: i.preco_unitario, custo: i.preco_custo,
+      pagamento: p.forma_pagamento, parcelas: p.parcelas, subtotal: p.subtotal, desconto: p.desconto, juros: p.juros, item: i.descricao, qtd: i.quantidade, preco: i.preco_unitario, custo: i.preco_custo,
       total_item: i.preco_unitario * i.quantidade, lucro_item: (i.preco_unitario - i.preco_custo) * i.quantidade,
       total_pedido: p.valor_total, rastreio: p.codigo_rastreio, obs: p.observacao })));
   },
@@ -156,6 +182,7 @@ const IMPORTAR = {
   clientes:   l => sb.rpc('admin_importar_clientes', { p_linhas: l }),
   categorias: l => sb.rpc('admin_importar_cadastro', { p_tabela: 'categorias', p_linhas: l }),
   marcas:     l => sb.rpc('admin_importar_cadastro', { p_tabela: 'marcas', p_linhas: l }),
+  atributos:  l => sb.rpc('admin_importar_opcoes', { p_linhas: l }),
 };
 const RESULTADO = {
   produtos:   r => `${r.produtos_novos} produto(s) novo(s), ${r.produtos_atualizados} atualizado(s), ${r.cores_novas} cor(es) nova(s), ${r.cores_atualizadas} cor(es) atualizada(s), ${r.ajustes_estoque} ajuste(s) de estoque.`,
@@ -163,6 +190,7 @@ const RESULTADO = {
   clientes:   r => `${r.clientes_novos} cliente(s) novo(s), ${r.clientes_atualizados} atualizado(s).`,
   categorias: r => `${r.novos} categoria(s) nova(s), ${r.atualizados} atualizada(s).`,
   marcas:     r => `${r.novos} marca(s) nova(s), ${r.atualizados} atualizada(s).`,
+  atributos:  r => `${r.novos} opção(ões) nova(s), ${r.atualizados} atualizada(s).`,
 };
 const RECARREGAR = {
   produtos: () => { carregarBase(); return carregarProdutos(); },
@@ -170,8 +198,9 @@ const RECARREGAR = {
   clientes: () => carregarClientes(),
   categorias: async () => { await carregarBase(); renderCategorias(); },
   marcas: async () => { await carregarBase(); renderCategorias(); },
+  atributos: async () => { await carregarBase(); renderCategorias(); },
 };
-const TITULO = { produtos: 'Produtos', estoque: 'Estoque', clientes: 'Clientes', categorias: 'Categorias', marcas: 'Marcas', pedidos: 'Pedidos' };
+const TITULO = { atributos: 'Atributos do produto', formas: 'Formas de pagamento', produtos: 'Produtos', estoque: 'Estoque', clientes: 'Clientes', categorias: 'Categorias', marcas: 'Marcas', pedidos: 'Pedidos' };
 
 // ------------------------- EXPORTAR -------------------------
 async function exportar(tipo, modelo = false) {

@@ -10,8 +10,7 @@ window.APP_CONFIG = {
   logo: 'logo.png',               // arquivo da logomarca (mesma pasta do index.html). Sem o arquivo, mostra o nome
 
   whatsapp: '5562999999999',      // DDI+DDD+número, só dígitos. Deixe '' para esconder
-  parcelasSemJuros: 3,            // mostra "ou 3x de R$ ..." no catálogo
-  formasPagamento: ['Pix', 'Cartão de crédito', 'Cartão de débito', 'Boleto', 'A combinar'],
+  // Formas de pagamento, parcelamento e exibição de preços agora ficam no painel: Configurações
 };
 
 window.sb = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_KEY);
@@ -62,6 +61,39 @@ window.U = {
       fav.href = im.src;
     };
     im.src = APP_CONFIG.logo + '?v=' + Date.now().toString().slice(0, 7);
+  },
+  // Mesmo cálculo do servidor (calcular_pagamento). O valor oficial é sempre o do servidor.
+  calcPagamento: (subtotal, f, n = 1) => {
+    const r2 = x => Math.round(Number((x * 100).toFixed(6))) / 100; // arredonda igual ao banco
+    n = Math.max(1, Math.min(Number(n) || 1, f.max_parcelas));
+    const desconto = r2(subtotal * Number(f.desconto_percentual) / 100);
+    const base = subtotal - desconto;
+    let parcela, total;
+    if (n <= f.parcelas_sem_juros || Number(f.juros_mes) === 0) { parcela = r2(base / n); total = base; }
+    else { const i = Number(f.juros_mes) / 100; parcela = r2(base * i / (1 - Math.pow(1 + i, -n))); total = r2(parcela * n); }
+    return { n, desconto, juros: r2(total - base), total, parcela, semJuros: total === base,
+             ok: n === 1 || parcela >= Number(f.parcela_minima) };
+  },
+  // Maior número de parcelas permitido para esse valor
+  maxParcelas: (subtotal, f) => {
+    for (let n = f.max_parcelas; n > 1; n--) if (U.calcPagamento(subtotal, f, n).ok) return n;
+    return 1;
+  },
+  // Melhor "Nx sem juros" entre as formas ativas (para mostrar no catálogo)
+  melhorParcelamento: (preco, formas) => {
+    let melhor = null;
+    for (const f of formas) {
+      for (let n = Math.min(f.max_parcelas, f.parcelas_sem_juros); n > 1; n--) {
+        const c = U.calcPagamento(preco, f, n);
+        if (c.ok) { if (!melhor || n > melhor.n) melhor = { ...c, forma: f.nome }; break; }
+      }
+    }
+    return melhor;
+  },
+  // Maior desconto à vista (ex.: Pix 5%)
+  melhorDesconto: (preco, formas) => {
+    const f = formas.filter(f => Number(f.desconto_percentual) > 0).sort((a, b) => b.desconto_percentual - a.desconto_percentual)[0];
+    return f ? { ...U.calcPagamento(preco, f, 1), forma: f.nome, pct: Number(f.desconto_percentual) } : null;
   },
   // Preenche endereço pelo CEP (ViaCEP)
   bindCep: form => {

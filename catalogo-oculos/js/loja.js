@@ -8,6 +8,8 @@ let produtos = [];
 let categorias = [];
 let usuario = null;
 let cliente = null;
+let cfgLoja = { mostrar_precos: 'sempre', texto_sem_preco: 'Consulte o preço' };
+let formas = [];   // formas de pagamento ativas
 const filtro = { cat: null, busca: '', genero: '', formato: '', ordem: 'destaque', polarizado: false };
 
 // ------------------------- carrinho (salvo no navegador) -------------------------
@@ -20,26 +22,29 @@ async function init() {
   document.title = `${CFG.nomeLoja} — Catálogo de Óculos`;
   U.marca($('#logo'), esc(CFG.nomeLoja) + '<span>.</span>');
   $('#rodapeNome').textContent = CFG.nomeLoja;
-  $('#cartPagamento').innerHTML = CFG.formasPagamento.map(f => `<option>${esc(f)}</option>`).join('');
 
   ligarEventos();
   atualizarContador();
 
-  const [c, p] = await Promise.all([
+  const [c, cfg, fp] = await Promise.all([
     sb.from('categorias').select('*').order('ordem').order('nome'),
-    sb.from('vw_catalogo').select('*'),
+    sb.from('configuracoes').select('*').eq('id', 1).maybeSingle(),
+    sb.from('formas_pagamento').select('*').eq('ativo', true).order('ordem').order('nome'),
   ]);
-  if (c.error || p.error) {
-    $('#grid').innerHTML = `<p class="vazio" style="grid-column:1/-1">Não foi possível carregar o catálogo.<br><small>${esc(erro(c.error || p.error))}</small></p>`;
+  if (c.error) {
+    $('#grid').innerHTML = `<p class="vazio" style="grid-column:1/-1">Não foi possível carregar o catálogo.<br><small>${esc(erro(c.error))}</small></p>`;
     return;
   }
   categorias = c.data;
-  produtos = p.data;
+  if (cfg.data) cfgLoja = cfg.data;
+  formas = fp.data || [];
+  $('#cartForma').innerHTML = formas.map(f => `<option value="${f.id}">${esc(f.nome)}${Number(f.desconto_percentual) ? ` (${Number(f.desconto_percentual)}% de desconto)` : ''}</option>`).join('');
+  $('#lblForma').classList.toggle('hidden', !formas.length);
+  if (!await carregarCatalogo()) return;
 
   const formatos = [...new Set(produtos.map(x => x.formato).filter(Boolean))].sort();
   $('#fFormato').innerHTML += formatos.map(f => `<option>${esc(f)}</option>`).join('');
 
-  sincronizarCarrinho();
   renderCategorias();
   render();
 
@@ -48,9 +53,42 @@ async function init() {
   if (m) abrirProduto(Number(m[1]));
 }
 
+// Carrega (ou recarrega) os produtos. Os preços vêm do servidor conforme a configuração.
+async function carregarCatalogo() {
+  const { data, error } = await sb.from('vw_catalogo').select('*');
+  if (error) {
+    $('#grid').innerHTML = `<p class="vazio" style="grid-column:1/-1">Não foi possível carregar o catálogo.<br><small>${esc(erro(error))}</small></p>`;
+    return false;
+  }
+  produtos = data;
+  const comPreco = produtos.some(p => p.preco_final != null);
+  $$('#fOrdem option[value=menor], #fOrdem option[value=maior]').forEach(o => o.hidden = !comPreco);
+  if (!comPreco && ['menor', 'maior'].includes(filtro.ordem)) { filtro.ordem = 'destaque'; $('#fOrdem').value = 'destaque'; }
+  sincronizarCarrinho();
+  return true;
+}
+
+// Bloco de preço do card e da página do produto
+function blocoPreco(p) {
+  if (p.preco_final == null) {
+    const entrar = cfgLoja.mostrar_precos === 'logados' && !usuario
+      ? `<span class="parcela"><button class="link" data-entrar>Entre para ver o preço</button></span>` : '';
+    return `<div class="preco"><span class="sem-preco">${esc(cfgLoja.texto_sem_preco)}</span></div>${entrar}`;
+  }
+  const preco = Number(p.preco_final);
+  const parc = U.melhorParcelamento(preco, formas), desc = U.melhorDesconto(preco, formas);
+  return `<div class="preco">${p.preco_promocional != null ? `<s>${fmt(p.preco_venda)}</s>` : ''}<strong>${fmt(preco)}</strong></div>
+    ${parc ? `<span class="parcela">ou ${parc.n}x de ${fmt(parc.parcela)} sem juros</span>` : ''}
+    ${desc ? `<span class="parcela pix">${fmt(desc.total)} no ${esc(desc.forma)} (${desc.pct}% off)</span>` : ''}`;
+}
+
 // Sessão do usuário
 sb.auth.onAuthStateChange((evento, session) => {
+  const antes = !!usuario;
   usuario = session?.user || null;
+  // com "preço só para logados", entrar/sair muda o que aparece
+  if (antes !== !!usuario && cfgLoja.mostrar_precos === 'logados' && produtos.length)
+    setTimeout(async () => { if (await carregarCatalogo()) { render(); renderCarrinho(); } }, 0);
   cliente = null;
   $('#btnConta').textContent = usuario ? 'Minha conta' : 'Entrar';
   if (evento === 'PASSWORD_RECOVERY') setTimeout(trocarSenha, 0);
@@ -110,7 +148,6 @@ function render() {
   $('#grid').innerHTML = lista.map(p => {
     const promo = p.preco_promocional != null;
     const esgotado = estoqueTotal(p) <= 0;
-    const parc = CFG.parcelasSemJuros > 1 ? `<span class="parcela">ou ${CFG.parcelasSemJuros}x de ${fmt(p.preco_final / CFG.parcelasSemJuros)} sem juros</span>` : '';
     return `
       <article class="card" data-id="${p.id}">
         <div class="card-img">
@@ -122,8 +159,7 @@ function render() {
           <small>${esc(p.marca || p.categoria || '')}</small>
           <h3>${esc(p.nome)}</h3>
           <div class="dots">${p.cores.map(c => `<span class="dot" style="background:${hex(c.cor_hex)}" title="${esc(c.cor)}"></span>`).join('')}</div>
-          <div class="preco">${promo ? `<s>${fmt(p.preco_venda)}</s>` : ''}<strong>${fmt(p.preco_final)}</strong></div>
-          ${parc}
+          ${blocoPreco(p)}
         </div>
       </article>`;
   }).join('');
@@ -156,8 +192,7 @@ function abrirProduto(id) {
         <div class="foto"><img src="${esc(img(cor?.imagem_url || fotoProduto(p)))}" alt="${esc(p.nome)}"></div>
         <div>
           <h2>${esc(p.nome)}</h2>
-          <div class="preco">${p.preco_promocional != null ? `<s>${fmt(p.preco_venda)}</s>` : ''}<strong>${fmt(p.preco_final)}</strong></div>
-          ${CFG.parcelasSemJuros > 1 ? `<div class="parcela">ou ${CFG.parcelasSemJuros}x de ${fmt(p.preco_final / CFG.parcelasSemJuros)} sem juros</div>` : ''}
+          <div class="bloco-preco">${blocoPreco(p)}</div>
 
           <p style="margin:18px 0 0"><b>Cor:</b> ${esc(cor?.cor || '—')}${cor?.cor_lente ? ` <span class="muted">· lente ${esc(cor.cor_lente)}</span>` : ''}</p>
           <div class="swatches">
@@ -185,6 +220,7 @@ function abrirProduto(id) {
     if (sw) { cor = p.cores.find(c => c.id === Number(sw.dataset.cor)); qtd = 1; return desenhar(); }
     const q = e.target.closest('[data-q]');
     if (q) { qtd = Math.min(Math.max(1, qtd + Number(q.dataset.q)), Math.max(1, cor?.estoque || 1)); return desenhar(); }
+    if (e.target.closest('[data-entrar]')) { $('#dlgProduto').close(); return abrirAuth('Entre na sua conta para ver os preços.'); }
     if (e.target.id === 'btnAdd') {
       adicionar(p, cor, qtd);
       $('#dlgProduto').close();
@@ -221,24 +257,61 @@ function atualizarContador() {
   $('#cartCount').textContent = carrinho.reduce((s, i) => s + i.qtd, 0) || '';
 }
 
+const precoItem = v => v == null ? esc(cfgLoja.texto_sem_preco) : fmt(v);
+
 function renderCarrinho() {
-  const total = carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
-  $('#cartTotal').textContent = fmt(total);
   $('#cartFoot').classList.toggle('hidden', !carrinho.length);
+  renderPagamento();
   $('#cartLista').innerHTML = carrinho.length ? carrinho.map((i, n) => `
     <div class="cart-item">
       <img src="${esc(img(i.imagem))}" alt="">
       <div>
         <div class="nome">${esc(i.nome)}</div>
-        <div class="muted" style="font-size:13px">Cor: ${esc(i.cor)} · ${fmt(i.preco)}</div>
+        <div class="muted" style="font-size:13px">Cor: ${esc(i.cor)} · ${precoItem(i.preco)}</div>
         <div class="qtd" style="margin-top:6px"><button data-n="${n}" data-q="-1">−</button><span>${i.qtd}</span><button data-n="${n}" data-q="1">+</button></div>
       </div>
       <div style="text-align:right">
-        <b>${fmt(i.preco * i.qtd)}</b><br>
+        <b>${i.preco == null ? '' : fmt(i.preco * i.qtd)}</b><br>
         <button class="link" data-rm="${n}" style="font-size:13px">remover</button>
       </div>
     </div>`).join('')
     : '<p class="vazio">Seu carrinho está vazio.</p>';
+}
+
+// Forma de pagamento, parcelas e resumo (mesmo cálculo do servidor)
+function renderPagamento() {
+  const semPreco = carrinho.some(i => i.preco == null);
+  const subtotal = carrinho.reduce((s, i) => s + (i.preco || 0) * i.qtd, 0);
+  const f = formas.find(x => x.id === Number($('#cartForma').value));
+  const selP = $('#cartParcelas');
+  if (!f) {
+    $('#lblParcelas').classList.add('hidden');
+    $('#cartResumo').innerHTML = '';
+    $('#cartTotal').innerHTML = semPreco ? esc(cfgLoja.texto_sem_preco) : fmt(subtotal);
+    return;
+  }
+  const max = semPreco ? f.max_parcelas : U.maxParcelas(subtotal, f);
+  const escolhido = Math.min(Number(selP.value) || 1, max);
+  selP.innerHTML = Array.from({ length: max }, (_, k) => {
+    const n = k + 1;
+    if (semPreco) return `<option value="${n}">${n}x${n <= f.parcelas_sem_juros || !Number(f.juros_mes) ? ' sem juros' : ' com juros'}</option>`;
+    const c = U.calcPagamento(subtotal, f, n);
+    return `<option value="${n}">${n === 1 ? 'À vista' : `${n}x`} de ${fmt(c.parcela)}${c.semJuros ? (n > 1 ? ' sem juros' : '') : ` (total ${fmt(c.total)})`}</option>`;
+  }).join('');
+  selP.value = escolhido;
+  $('#lblParcelas').classList.toggle('hidden', max <= 1);
+
+  if (semPreco) {
+    $('#cartResumo').innerHTML = `<div class="muted" style="font-size:13px">Os valores serão informados pela loja ao confirmar o pedido.</div>`;
+    $('#cartTotal').innerHTML = esc(cfgLoja.texto_sem_preco);
+    return;
+  }
+  const c = U.calcPagamento(subtotal, f, escolhido);
+  $('#cartResumo').innerHTML = (c.desconto || c.juros) ? `
+    <div class="resumo-linha"><span>Subtotal</span><span>${fmt(subtotal)}</span></div>
+    ${c.desconto ? `<div class="resumo-linha ok"><span>Desconto ${esc(f.nome)} (${Number(f.desconto_percentual)}%)</span><span>− ${fmt(c.desconto)}</span></div>` : ''}
+    ${c.juros ? `<div class="resumo-linha"><span>Juros do parcelamento</span><span>+ ${fmt(c.juros)}</span></div>` : ''}` : '';
+  $('#cartTotal').innerHTML = fmt(c.total) + (escolhido > 1 ? `<small class="muted" style="display:block;font-size:12px;font-weight:500;text-align:right">${escolhido}x de ${fmt(c.parcela)}</small>` : '');
 }
 
 function abrirCarrinho() { renderCarrinho(); $('#drawer').classList.add('on'); $('#overlay').classList.add('on'); }
@@ -256,19 +329,23 @@ async function finalizar() {
   const { data: pedidoId, error } = await sb.rpc('criar_pedido', {
     p_itens: carrinho.map(i => ({ cor_id: i.cor_id, quantidade: i.qtd })),
     p_observacao: $('#cartObs').value,
-    p_forma_pagamento: $('#cartPagamento').value,
+    p_forma_id: formas.length ? Number($('#cartForma').value) : null,
+    p_parcelas: Number($('#cartParcelas').value) || 1,
   });
   btn.disabled = false; btn.textContent = 'Enviar pedido';
   if (error) return toast(erro(error), 'erro');
 
   const resumo = carrinho.map(i => `${i.qtd}x ${i.nome} (${i.cor})`).join('\n');
-  const total = fmt(carrinho.reduce((s, i) => s + i.preco * i.qtd, 0));
+  const semPreco = carrinho.some(i => i.preco == null);
+  const totalTxt = semPreco ? '' : `\nTotal: ${$('#cartTotal').firstChild?.textContent || ''}`;
+  const fNome = formas.find(x => x.id === Number($('#cartForma').value))?.nome;
+  const pagTxt = fNome ? `\nPagamento: ${fNome}${Number($('#cartParcelas').value) > 1 ? ` em ${$('#cartParcelas').value}x` : ''}` : '';
   carrinho = []; salvarCarrinho(); $('#cartObs').value = '';
   $('#cartFoot').classList.add('hidden');
 
   const zap = CFG.whatsapp
     ? `<a class="btn btn-ok btn-block" target="_blank" rel="noopener" href="https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(
-        `Olá! Acabei de fazer o pedido #${pedidoId} no site.\n${resumo}\nTotal: ${total}`)}">Avisar a loja pelo WhatsApp</a>` : '';
+        `Olá! Acabei de fazer o pedido #${pedidoId} no site.\n${resumo}${pagTxt}${totalTxt}`)}">Avisar a loja pelo WhatsApp</a>` : '';
   $('#cartLista').innerHTML = `
     <div style="text-align:center;padding:40px 6px;display:grid;gap:14px">
       <h2>Pedido #${pedidoId} enviado!</h2>
@@ -336,6 +413,9 @@ async function abrirConta() {
     .forEach(k => f[k].value = cliente[k] || '');
 }
 
+// Com "não mostrar preços", o valor só aparece depois que a loja aprova
+const ocultar = p => cfgLoja.mostrar_precos === 'nunca' && ['pendente', 'recusado', 'cancelado'].includes(p.status);
+
 async function carregarPedidos() {
   const box = $('#contaPedidos');
   box.innerHTML = '<p class="muted">Carregando…</p>';
@@ -348,10 +428,10 @@ async function carregarPedidos() {
         <b>Pedido #${p.id}</b>
         <span class="muted">${data(p.criado_em)}</span>
         <span class="st st-${p.status}">${statusLabel(p.status)}</span>
-        <b>${fmt(p.valor_total)}</b>
+        <b>${ocultar(p) ? esc(cfgLoja.texto_sem_preco) : fmt(p.valor_total)}</b>
       </div>
-      <ul>${p.itens_pedido.map(i => `<li>${i.quantidade}x ${esc(i.descricao)} — ${fmt(i.preco_unitario)}</li>`).join('')}</ul>
-      ${p.forma_pagamento ? `<div class="muted" style="font-size:13px">Pagamento: ${esc(p.forma_pagamento)}</div>` : ''}
+      <ul>${p.itens_pedido.map(i => `<li>${i.quantidade}x ${esc(i.descricao)}${ocultar(p) ? '' : ` — ${fmt(i.preco_unitario)}`}</li>`).join('')}</ul>
+      ${p.forma_pagamento ? `<div class="muted" style="font-size:13px">Pagamento: ${esc(p.forma_pagamento)}${p.parcelas > 1 && !ocultar(p) ? ` · ${p.parcelas}x de ${fmt(p.valor_parcela)}` : p.parcelas > 1 ? ` · ${p.parcelas}x` : ''}${!ocultar(p) && Number(p.desconto) ? ` · desconto de ${fmt(p.desconto)}` : ''}</div>` : ''}
       ${p.motivo_recusa ? `<div class="msg erro" style="margin-top:8px">Motivo: ${esc(p.motivo_recusa)}</div>` : ''}
       ${p.codigo_rastreio ? `<div class="msg" style="margin-top:8px">Código de rastreio: <b>${esc(p.codigo_rastreio)}</b></div>` : ''}
       ${p.status === 'pendente' ? `<button class="btn btn-bad btn-sm" style="margin-top:8px" data-cancelar="${p.id}">Cancelar pedido</button>` : ''}
@@ -395,7 +475,12 @@ function ligarEventos() {
   $('#fOrdem').onchange = e => { filtro.ordem = e.target.value; render(); };
   $('#fPolarizado').onchange = e => { filtro.polarizado = e.target.checked; render(); };
 
-  $('#grid').addEventListener('click', e => { const c = e.target.closest('.card'); if (c) abrirProduto(Number(c.dataset.id)); });
+  $('#grid').addEventListener('click', e => {
+    if (e.target.closest('[data-entrar]')) return abrirAuth('Entre na sua conta para ver os preços.');
+    const c = e.target.closest('.card'); if (c) abrirProduto(Number(c.dataset.id));
+  });
+  $('#cartForma').onchange = () => { $('#cartParcelas').value = 1; renderPagamento(); };
+  $('#cartParcelas').onchange = renderPagamento;
 
   // fechar diálogos (botão X e clique fora)
   $$('dialog').forEach(d => {

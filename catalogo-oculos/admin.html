@@ -32,8 +32,9 @@
     <button data-sec="pedidos">Pedidos <span class="pill" id="pillPendentes"></span></button>
     <button data-sec="produtos">Produtos</button>
     <button data-sec="estoque">Estoque</button>
-    <button data-sec="categorias">Categorias e marcas</button>
+    <button data-sec="categorias">Cadastros</button>
     <button data-sec="clientes">Clientes</button>
+    <button data-sec="config">Configurações</button>
     <div class="bottom"><div id="adminEmail"></div><button class="link" id="btnSair" style="color:#cfcac2;padding:6px 0">Sair</button></div>
   </nav>
 
@@ -98,7 +99,8 @@
 
     <!-- CATEGORIAS & MARCAS -->
     <section data-pane="categorias" class="hidden">
-      <div class="main-head"><h1>Categorias e marcas</h1></div>
+      <div class="main-head"><h1>Cadastros</h1></div>
+      <h2 style="font-size:20px;margin:0 0 12px">Categorias e marcas</h2>
       <div class="det-grid" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr))">
         <div class="panel">
           <div class="main-head" style="margin-bottom:10px"><h3 style="margin:0">Categorias</h3><div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="categorias" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="categorias" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="categorias" title="Planilha em branco com instruções">Modelo</button></div></div>
@@ -110,6 +112,61 @@
           <form id="formMarca" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Nova marca" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
           <table class="tbl" id="tblMarca"></table>
         </div>
+      </div>
+
+      <div class="main-head" style="margin:26px 0 12px">
+        <div><h2 style="font-size:20px;margin:0">Atributos do produto</h2>
+        <small class="muted">Opções que aparecem para escolher no cadastro do produto. Renomear aqui atualiza os produtos que usam a opção.</small></div>
+        <div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="atributos" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="atributos" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="atributos" title="Planilha em branco com instruções">Modelo</button></div>
+      </div>
+      <div class="det-grid" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr))">
+        <div class="panel">
+          <h3>Formato</h3>
+          <form data-opcao-form="formato" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Novo formato" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
+          <table class="tbl" data-opcao-tbl="formato"></table>
+        </div>
+        <div class="panel">
+          <h3>Material da armação</h3>
+          <form data-opcao-form="material_armacao" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Novo material da armação" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
+          <table class="tbl" data-opcao-tbl="material_armacao"></table>
+        </div>
+        <div class="panel">
+          <h3>Material da lente</h3>
+          <form data-opcao-form="material_lente" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Novo material da lente" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
+          <table class="tbl" data-opcao-tbl="material_lente"></table>
+        </div>
+        <div class="panel">
+          <h3>Tipo de lente</h3>
+          <form data-opcao-form="tipo_lente" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Novo tipo de lente" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
+          <table class="tbl" data-opcao-tbl="tipo_lente"></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONFIGURAÇÕES -->
+    <section data-pane="config" class="hidden">
+      <div class="main-head"><h1>Configurações</h1></div>
+
+      <div class="panel" style="max-width:760px">
+        <h3>Exibição de preços na loja</h3>
+        <form id="formConfig" style="display:grid;gap:10px">
+          <label class="check"><input type="radio" name="mostrar_precos" value="sempre"> <span><b>Mostrar para todos</b> — qualquer visitante vê os preços</span></label>
+          <label class="check"><input type="radio" name="mostrar_precos" value="logados"> <span><b>Só para clientes logados</b> — visitante vê o texto abaixo e precisa entrar para ver o preço</span></label>
+          <label class="check"><input type="radio" name="mostrar_precos" value="nunca"> <span><b>Não mostrar</b> — catálogo sem preços; o valor é informado pela loja ao aprovar o pedido</span></label>
+          <label style="max-width:420px">Texto exibido no lugar do preço <input name="texto_sem_preco" maxlength="60" required></label>
+          <p class="muted" style="margin:0;font-size:13px">O preço fica oculto no servidor: ele nem chega ao navegador de quem não pode ver.</p>
+          <div><button class="btn btn-accent">Salvar exibição de preços</button></div>
+        </form>
+      </div>
+
+      <div class="panel">
+        <div class="main-head" style="margin-bottom:10px">
+          <div><h3 style="margin:0">Formas de pagamento e parcelamento</h3>
+          <small class="muted">Altere direto na tabela; salva sozinho. Juros compostos (tabela Price) a partir da primeira parcela com juros.</small></div>
+          <div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="formas" title="Baixar planilha Excel">⬇ Exportar</button></div>
+        </div>
+        <form id="formForma" style="display:flex;gap:8px;margin-bottom:12px;max-width:520px"><input name="nome" placeholder="Nova forma de pagamento (ex.: Crediário)" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
+        <div style="overflow-x:auto"><table class="tbl" id="tblFormas"></table></div>
       </div>
     </section>
 
@@ -138,10 +195,10 @@
 
       <fieldset class="form-grid">
         <legend>Características</legend>
-        <label class="c2">Formato <input name="formato" list="lFormato"></label>
-        <label class="c2">Material da armação <input name="material_armacao" list="lArmacao"></label>
-        <label class="c2">Material da lente <input name="material_lente" list="lLente"></label>
-        <label class="c2">Tipo de lente <input name="tipo_lente" list="lTipo"></label>
+        <label class="c2">Formato <select name="formato" data-opcao="formato"></select></label>
+        <label class="c2">Material da armação <select name="material_armacao" data-opcao="material_armacao"></select></label>
+        <label class="c2">Material da lente <select name="material_lente" data-opcao="material_lente"></select></label>
+        <label class="c2">Tipo de lente <select name="tipo_lente" data-opcao="tipo_lente"></select></label>
         <label class="c2">Proteção UV <input name="protecao_uv" placeholder="UV400"></label>
         <label class="c2 check" style="align-self:end;padding-bottom:10px"><input type="checkbox" name="polarizado"> Lente polarizada</label>
         <label class="c2">Largura da lente (mm) <input name="largura_lente_mm" type="number" min="0"></label>
@@ -188,10 +245,6 @@
   </form>
 </dialog>
 
-<datalist id="lFormato"><option>Aviador</option><option>Redondo</option><option>Quadrado</option><option>Retangular</option><option>Gatinho</option><option>Oversized</option><option>Hexagonal</option><option>Clubmaster</option><option>Esportivo</option><option>Máscara</option></datalist>
-<datalist id="lArmacao"><option>Acetato</option><option>Metal</option><option>TR90</option><option>Titânio</option><option>Aço inox</option><option>Policarbonato</option><option>Madeira</option></datalist>
-<datalist id="lLente"><option>Policarbonato</option><option>Nylon</option><option>Cristal</option><option>CR-39</option><option>Acrílico</option></datalist>
-<datalist id="lTipo"><option>Solar</option><option>Receituário (grau)</option><option>Proteção luz azul</option><option>Fotossensível</option><option>Espelhada</option></datalist>
 
 <!-- ===== Importar planilha ===== -->
 <dialog id="dlgImport">

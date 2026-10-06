@@ -59,8 +59,10 @@
   <div class="dlg-head"><h2 style="font-size:22px">Seu carrinho</h2><button class="x" id="fecharCarrinho">&times;</button></div>
   <div class="drawer-list" id="cartLista"></div>
   <div class="drawer-foot" id="cartFoot">
+    <label id="lblForma">Forma de pagamento <select id="cartForma"></select></label>
+    <label id="lblParcelas" class="hidden">Parcelamento <select id="cartParcelas"></select></label>
+    <div id="cartResumo"></div>
     <div class="total-row"><span>Total</span><span id="cartTotal">R$ 0,00</span></div>
-    <label>Forma de pagamento <select id="cartPagamento"></select></label>
     <label>Observação (opcional) <textarea id="cartObs" placeholder="Ex.: preciso para presente, prefiro retirar na loja..."></textarea></label>
     <button class="btn btn-accent btn-block" id="btnFinalizar">Enviar pedido</button>
     <small class="muted" style="text-align:center">O pedido será analisado pela loja. Você acompanha em “Minha conta”.</small>

@@ -99,6 +99,15 @@ js/admin.js         lógica do painel
 supabase/schema.sql banco de dados completo
 ```
 
+## Configurações (painel → Configurações)
+
+- **Exibição de preços:** mostrar para todos, só para clientes logados, ou não mostrar. O preço é escondido no servidor (não chega ao navegador de quem não pode ver). Com "não mostrar", o cliente vê o valor do pedido depois que a loja aprova.
+- **Formas de pagamento:** desconto (%), máximo de parcelas, parcelas sem juros, juros ao mês (tabela Price) e parcela mínima. A loja mostra "ou 3x de R$ X sem juros" e "R$ Y no Pix" automaticamente, e o carrinho calcula o total. O cálculo oficial é feito no servidor.
+
+## Atributos do produto (painel → Cadastros)
+
+Listas de **Formato, Material da armação, Material da lente e Tipo de lente** usadas no cadastro do produto (com opção "+ Cadastrar nova" direto no produto). Renomear uma opção atualiza os produtos que a usam.
+
 ## Planilhas (importar e exportar)
 
 Em **Produtos, Estoque, Categorias, Marcas e Clientes** há três botões:

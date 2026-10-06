@@ -4,7 +4,7 @@
 const { $, $$, fmt, esc, hex, norm, img, erro, toast, data, statusLabel } = U;
 const CFG = window.APP_CONFIG;
 
-let categorias = [], marcas = [], produtos = [], clientes = [];
+let categorias = [], marcas = [], produtos = [], clientes = [], opcoes = [], formas = [];
 let editId = null, coresEdit = [], fotoArquivo = null;
 const abertos = new Set(); // pedidos expandidos
 
@@ -42,7 +42,7 @@ $('#btnSair').onclick = async () => { await sb.auth.signOut(); mostrarLogin(); }
 // ------------------------- navegação -------------------------
 const carregadores = {
   dashboard: carregarDashboard, pedidos: carregarPedidos, produtos: carregarProdutos,
-  estoque: carregarEstoque, categorias: renderCategorias, clientes: carregarClientes,
+  estoque: carregarEstoque, categorias: renderCategorias, clientes: carregarClientes, config: carregarConfig,
 };
 function abrirSecao(sec) {
   $$('.side [data-sec]').forEach(b => b.classList.toggle('on', b.dataset.sec === sec));
@@ -53,11 +53,13 @@ $$('.side [data-sec]').forEach(b => b.onclick = () => abrirSecao(b.dataset.sec))
 $$('[data-reload]').forEach(b => b.onclick = () => carregadores[b.dataset.reload]());
 
 async function carregarBase() {
-  const [c, m] = await Promise.all([
+  const [c, m, o, fp] = await Promise.all([
     sb.from('categorias').select('*').order('ordem').order('nome'),
     sb.from('marcas').select('*').order('nome'),
+    sb.from('opcoes').select('*').order('ordem').order('nome'),
+    sb.from('formas_pagamento').select('*').order('ordem').order('nome'),
   ]);
-  categorias = c.data || []; marcas = m.data || [];
+  categorias = c.data || []; marcas = m.data || []; opcoes = o.data || []; formas = fp.data || [];
   atualizarPillPendentes();
 }
 
@@ -140,7 +142,8 @@ async function carregarPedidos() {
             <span>${esc(end.bairro || '')} — ${esc(end.cidade || '')}/${esc(end.uf || '')} ${esc(end.cep || '')}</span>
             <span>Tel.: ${esc(p.clientes?.telefone || '—')} ${zap ? `· <a href="https://wa.me/55${zap.replace(/^55/, '')}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</span>
             <span>CPF: ${esc(p.clientes?.cpf || '—')}</span>
-            <span>Pagamento: <b>${esc(p.forma_pagamento || '—')}</b></span>
+            <span>Pagamento: <b>${esc(p.forma_pagamento || '—')}${p.parcelas > 1 ? ` · ${p.parcelas}x de ${fmt(p.valor_parcela)}` : ''}</b></span>
+            ${Number(p.desconto) || Number(p.juros) ? `<span>Subtotal ${fmt(p.subtotal)}${Number(p.desconto) ? ` · desconto −${fmt(p.desconto)}` : ''}${Number(p.juros) ? ` · juros +${fmt(p.juros)}` : ''}</span>` : ''}
             ${p.codigo_rastreio ? `<span>Rastreio: <b>${esc(p.codigo_rastreio)}</b></span>` : ''}
             ${p.aprovado_em ? `<span class="muted">Aprovado em ${data(p.aprovado_em)}</span>` : ''}
             <div class="row-actions" style="margin-top:10px">${acoesPedido(p)}</div>
@@ -208,6 +211,10 @@ const CADASTROS = {
                 aviso: 'Os produtos desta categoria ficarão "sem categoria".' },
   marcas:     { nome: id => marcas.find(x => x.id === id)?.nome, recarregar: async () => { await carregarBase(); renderCategorias(); },
                 aviso: 'Os produtos desta marca ficarão "sem marca".' },
+  opcoes:     { nome: id => opcoes.find(x => x.id === id)?.nome, recarregar: async () => { await carregarBase(); renderCategorias(); },
+                aviso: 'Os produtos que usam esta opção continuam com o valor gravado.' },
+  formas_pagamento: { nome: id => formas.find(x => x.id === id)?.nome, recarregar: async () => { await carregarBase(); renderFormas(); },
+                aviso: 'Pedidos antigos continuam mostrando esta forma de pagamento.' },
   clientes:   { nome: id => clientes.find(x => x.id === id)?.nome, recarregar: () => carregarClientes(),
                 aviso: 'O login do cliente também será apagado.' },
 };
@@ -285,6 +292,33 @@ $('#tblProdutos').addEventListener('click', e => {
   const b = e.target.closest('[data-edit]'); if (b) abrirProduto(Number(b.dataset.edit));
 });
 
+// Lista de opções (Formato, Materiais, Tipo de lente) + "Cadastrar nova..."
+function preencherOpcoes(sel, atual) {
+  const lista = opcoes.filter(o => o.tipo === sel.dataset.opcao && (o.ativo || o.nome === atual));
+  const extra = atual && !lista.some(o => o.nome === atual) ? [{ nome: atual }] : [];
+  sel.innerHTML = '<option value="">— selecione —</option>' +
+    [...lista, ...extra].map(o => `<option>${esc(o.nome)}</option>`).join('') +
+    '<option value="__novo">+ Cadastrar nova opção…</option>';
+  sel.value = atual || '';
+  sel.dataset.anterior = sel.value;
+}
+$('#formProduto').addEventListener('change', async e => {
+  const sel = e.target.closest('[data-opcao]'); if (!sel) return;
+  if (sel.value !== '__novo') { sel.dataset.anterior = sel.value; return; }
+  const titulo = sel.closest('label').firstChild.textContent.trim();
+  const nome = (prompt(`Nova opção para "${titulo}":`) || '').trim();
+  if (!nome) { sel.value = sel.dataset.anterior || ''; return; }
+  const existe = opcoes.find(o => o.tipo === sel.dataset.opcao && norm(o.nome) === norm(nome));
+  if (!existe) {
+    const ordem = Math.max(0, ...opcoes.filter(o => o.tipo === sel.dataset.opcao).map(o => o.ordem)) + 1;
+    const { error } = await sb.from('opcoes').insert({ tipo: sel.dataset.opcao, nome, ordem });
+    if (error) { sel.value = sel.dataset.anterior || ''; return toast(erro(error), 'erro'); }
+    await carregarBase();
+    toast(`"${nome}" cadastrado em ${titulo}`, 'ok');
+  }
+  preencherOpcoes(sel, existe ? existe.nome : nome);
+});
+
 function abrirProduto(id) {
   const f = $('#formProduto');
   f.reset();
@@ -293,6 +327,7 @@ function abrirProduto(id) {
 
   f.categoria_id.innerHTML = '<option value="">— sem categoria —</option>' + categorias.map(c => `<option value="${c.id}">${esc(c.nome)}${c.ativo ? '' : ' (inativa)'}</option>`).join('');
   f.marca_id.innerHTML = '<option value="">— sem marca —</option>' + marcas.map(m => `<option value="${m.id}">${esc(m.nome)}${m.ativo ? '' : ' (inativa)'}</option>`).join('');
+  $$('[data-opcao]', f).forEach(sel => preencherOpcoes(sel, p?.[sel.name]));
 
   $('#tituloProduto').textContent = p ? `Editar: ${p.nome}` : 'Novo produto';
   const campos = ['nome', 'sku', 'categoria_id', 'marca_id', 'genero', 'descricao', 'formato', 'material_armacao', 'material_lente',
@@ -513,14 +548,38 @@ function renderCategorias() {
       <td>${badgeStatus(m.ativo)}</td>
       <td>${botoesStatus('marcas', m.id, m.ativo)}</td>
     </tr>`).join('')}</tbody>` : '<tr><td class="muted">Nenhuma marca.</td></tr>';
+  renderOpcoes();
 }
+
+function renderOpcoes() {
+  $$('[data-opcao-tbl]').forEach(tbl => {
+    const lista = opcoes.filter(o => o.tipo === tbl.dataset.opcaoTbl);
+    tbl.innerHTML = lista.length ? `
+      <thead><tr><th>Nome</th><th>Ordem</th><th>Status</th><th></th></tr></thead>
+      <tbody>${lista.map(o => `<tr>
+        <td><input value="${esc(o.nome)}" data-tab="opcoes" data-id="${o.id}" data-k="nome"></td>
+        <td style="width:84px"><input type="number" value="${o.ordem}" data-tab="opcoes" data-id="${o.id}" data-k="ordem"></td>
+        <td>${badgeStatus(o.ativo)}</td>
+        <td>${botoesStatus('opcoes', o.id, o.ativo)}</td>
+      </tr>`).join('')}</tbody>` : '<tr><td class="muted">Nenhuma opção.</td></tr>';
+  });
+}
+$$('[data-opcao-form]').forEach(form => form.onsubmit = async e => {
+  e.preventDefault();
+  const tipo = form.dataset.opcaoForm, nome = form.nome.value.trim();
+  const ordem = Math.max(0, ...opcoes.filter(o => o.tipo === tipo).map(o => o.ordem)) + 1;
+  const { error } = await sb.from('opcoes').insert({ tipo, nome, ordem });
+  if (error) return toast(erro(error), 'erro');
+  form.reset(); await carregarBase(); renderCategorias();
+});
 
 $('[data-pane="categorias"]').addEventListener('change', async e => {
   const el = e.target; if (!el.dataset.tab) return;
   const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value.trim();
   const { error } = await sb.from(el.dataset.tab).update({ [el.dataset.k]: v }).eq('id', Number(el.dataset.id));
   if (error) return toast(erro(error), 'erro');
-  toast('Salvo', 'ok'); carregarBase();
+  toast(el.dataset.tab === 'opcoes' && el.dataset.k === 'nome' ? 'Salvo — produtos com essa opção foram atualizados' : 'Salvo', 'ok');
+  carregarBase();
 });
 $('#formCat').onsubmit = async e => {
   e.preventDefault();
@@ -533,6 +592,74 @@ $('#formMarca').onsubmit = async e => {
   const { error } = await sb.from('marcas').insert({ nome: e.target.nome.value.trim() });
   if (error) return toast(erro(error), 'erro');
   e.target.reset(); await carregarBase(); renderCategorias();
+};
+
+// ------------------------- configurações -------------------------
+async function carregarConfig() {
+  const [{ data: cfg }] = await Promise.all([sb.from('configuracoes').select('*').eq('id', 1).maybeSingle(), carregarBase()]);
+  const f = $('#formConfig');
+  const m = cfg?.mostrar_precos || 'sempre';
+  $$('[name=mostrar_precos]', f).forEach(r => r.checked = r.value === m);
+  f.texto_sem_preco.value = cfg?.texto_sem_preco || 'Consulte o preço';
+  renderFormas();
+}
+$('#formConfig').onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target;
+  const dados = { mostrar_precos: f.querySelector('[name=mostrar_precos]:checked')?.value || 'sempre',
+                  texto_sem_preco: f.texto_sem_preco.value.trim() || 'Consulte o preço', atualizado_em: new Date().toISOString() };
+  const { error } = await sb.from('configuracoes').update(dados).eq('id', 1);
+  if (error) return toast(erro(error), 'erro');
+  toast('Exibição de preços salva', 'ok');
+};
+
+function simulacao(f, valor = 300) {
+  const max = U.maxParcelas(valor, f), c1 = U.calcPagamento(valor, f, 1), cm = U.calcPagamento(valor, f, max);
+  const avista = Number(f.desconto_percentual) ? `${fmt(c1.total)} à vista` : `${fmt(valor)} à vista`;
+  return max > 1 ? `${avista} ou ${max}x de ${fmt(cm.parcela)}${cm.semJuros ? ' sem juros' : ` (total ${fmt(cm.total)})`}` : avista;
+}
+function renderFormas() {
+  const num = (f, k, step, min, max) => `<input type="number" step="${step}" min="${min}" ${max ? `max="${max}"` : ''} value="${Number(f[k])}" data-tab="formas_pagamento" data-id="${f.id}" data-k="${k}" style="width:66px">`;
+  $('#tblFormas').innerHTML = formas.length ? `
+    <thead><tr><th>Nome</th><th>Descrição</th><th title="Desconto sobre o total">Desc. %</th><th>Máx. parc.</th>
+      <th title="Até quantas parcelas sem juros">Sem juros até</th><th title="Juros ao mês a partir da primeira parcela com juros">Juros % a.m.</th>
+      <th title="Valor mínimo de cada parcela">Parc. mín. R$</th><th>Ordem</th><th>Simulação (R$ 300)</th><th>Status</th><th></th></tr></thead>
+    <tbody>${formas.map(f => `<tr>
+      <td><input value="${esc(f.nome)}" data-tab="formas_pagamento" data-id="${f.id}" data-k="nome" style="min-width:110px;width:120px"></td>
+      <td><input value="${esc(f.descricao || '')}" data-tab="formas_pagamento" data-id="${f.id}" data-k="descricao" style="min-width:100px;width:110px"></td>
+      <td>${num(f, 'desconto_percentual', '0.5', 0, 100)}</td>
+      <td>${num(f, 'max_parcelas', '1', 1, 24)}</td>
+      <td>${num(f, 'parcelas_sem_juros', '1', 1, 24)}</td>
+      <td>${num(f, 'juros_mes', '0.01', 0)}</td>
+      <td>${num(f, 'parcela_minima', '1', 0)}</td>
+      <td>${num(f, 'ordem', '1', 0)}</td>
+      <td style="font-size:12px;min-width:150px">${simulacao(f)}</td>
+      <td>${badgeStatus(f.ativo)}</td>
+      <td>${botoesStatus('formas_pagamento', f.id, f.ativo)}</td>
+    </tr>`).join('')}</tbody>` : '<tr><td class="muted">Nenhuma forma de pagamento. Sem formas cadastradas, o pedido fica "a combinar".</td></tr>';
+}
+$('[data-pane="config"]').addEventListener('change', async e => {
+  const el = e.target; if (el.dataset.tab !== 'formas_pagamento') return;
+  let v = el.type === 'number' ? Number(el.value) : el.value.trim() || null;
+  if (el.dataset.k === 'nome' && !v) return toast('O nome não pode ficar vazio', 'erro');
+  const f = formas.find(x => x.id === Number(el.dataset.id));
+  const novo = { ...f, [el.dataset.k]: v };
+  if (Number(novo.parcelas_sem_juros) > Number(novo.max_parcelas)) {
+    if (el.dataset.k === 'max_parcelas') novo.parcelas_sem_juros = v; else { novo.parcelas_sem_juros = novo.max_parcelas; v = novo.max_parcelas; }
+  }
+  const dados = { [el.dataset.k]: v };
+  if (novo.parcelas_sem_juros !== f.parcelas_sem_juros) dados.parcelas_sem_juros = novo.parcelas_sem_juros;
+  const { error } = await sb.from('formas_pagamento').update(dados).eq('id', f.id);
+  if (error) { toast(erro(error), 'erro'); return carregarConfig(); }
+  toast('Salvo', 'ok');
+  await carregarBase(); renderFormas();
+});
+$('#formForma').onsubmit = async e => {
+  e.preventDefault();
+  const ordem = Math.max(0, ...formas.map(f => f.ordem)) + 1;
+  const { error } = await sb.from('formas_pagamento').insert({ nome: e.target.nome.value.trim(), ordem });
+  if (error) return toast(erro(error), 'erro');
+  e.target.reset(); await carregarBase(); renderFormas();
 };
 
 // ------------------------- clientes -------------------------

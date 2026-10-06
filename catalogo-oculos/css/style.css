@@ -39,7 +39,7 @@ a { color: inherit; }
 .link { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; text-decoration: underline; }
 
 label { display: block; font-size: 13px; color: var(--muted); font-weight: 500; }
-input:not([type=checkbox]):not([type=color]), select, textarea {
+input:not([type=checkbox]):not([type=color]):not([type=radio]), select, textarea {
   width: 100%; margin-top: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); border-color: var(--accent); }
 textarea { min-height: 70px; resize: vertical; }
@@ -227,3 +227,19 @@ legend { padding: 0 6px; font-weight: 600; font-size: 14px; }
 .acoes .acoes { display: contents; }
 #impCorpo td { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .side .pill:empty { display: none; }
+
+.sem-preco { font-weight: 600; color: var(--accent); }
+.parcela.pix { color: var(--ok); font-weight: 600; }
+.card-body .parcela { display: block; }
+.bloco-preco .parcela { display: block; margin-top: 2px; }
+#cartResumo { display: grid; gap: 4px; font-size: 14px; }
+.resumo-linha { display: flex; justify-content: space-between; color: var(--muted); }
+.resumo-linha.ok { color: var(--ok); }
+input[type=radio] { margin: 3px 0 0; flex: none; }
+#formConfig .check { align-items: flex-start; }
+#tblFormas input { padding: 7px 6px; }
+.tbl input[type=number] { padding-right: 4px; }
+#tblFormas th, #tblFormas td { padding: 8px 5px; }
+#tblFormas th { font-size: 11px; }
+#tblFormas input[type=number] { width: 58px !important; }
+#tblFormas .acoes .btn { padding: 5px 9px; }
