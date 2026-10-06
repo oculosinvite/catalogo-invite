@@ -95,13 +95,14 @@ const COLS = {
     ['ativo', 'Ativo', '', 'Sim ou Não.'],
     ['produtos', 'Produtos', '', 'Apenas informativo.', true],
   ],
+  situacoes: [['nome', 'Nome'], ['cor', 'Cor'], ['acao', 'Ação do sistema'], ['visivel_cliente', 'Cliente vê'], ['inicial', 'Inicial'], ['ordem', 'Ordem'], ['ativo', 'Ativo']],
   formas: [
     ['nome', 'Nome'], ['descricao', 'Descrição'], ['desconto_percentual', 'Desconto %'], ['max_parcelas', 'Máx. parcelas'],
     ['parcelas_sem_juros', 'Sem juros até'], ['juros_mes', 'Juros % a.m.'], ['parcela_minima', 'Parcela mínima'],
     ['ordem', 'Ordem'], ['ativo', 'Ativo'], ['simulacao', 'Simulação R$ 300'],
   ],
   pedidos: [
-    ['pedido', 'Pedido'], ['data', 'Data'], ['status', 'Status'], ['cliente', 'Cliente'], ['email', 'E-mail'],
+    ['pedido', 'Pedido'], ['data', 'Data'], ['situacao', 'Situação'], ['status', 'Etapa'], ['cliente', 'Cliente'], ['email', 'E-mail'],
     ['telefone', 'Telefone'], ['cidade', 'Cidade/UF'], ['pagamento', 'Pagamento'], ['parcelas', 'Parcelas'], ['item', 'Item'],
     ['qtd', 'Qtd'], ['preco', 'Preço unitário'], ['custo', 'Custo unitário'], ['total_item', 'Total item'],
     ['lucro_item', 'Lucro item'], ['subtotal', 'Subtotal pedido'], ['desconto', 'Desconto'], ['juros', 'Juros'], ['total_pedido', 'Total pedido'], ['rastreio', 'Rastreio'], ['obs', 'Observação'],
@@ -156,6 +157,11 @@ const LINHAS = {
     if (error) throw error;
     return data.map(o => ({ ...o, tipo: NOMES[o.tipo], produtos: (ps || []).filter(p => p[o.tipo] === o.nome).length }));
   },
+  async situacoes() {
+    const { data, error } = await sb.from('situacoes_pedido').select('*').order('ordem');
+    if (error) throw error;
+    return data.map(x => ({ ...x, acao: ACOES[x.acao] || x.acao }));
+  },
   async formas() {
     const { data, error } = await sb.from('formas_pagamento').select('*').order('ordem');
     if (error) throw error;
@@ -163,12 +169,14 @@ const LINHAS = {
   },
   async pedidos() {
     const st = $('#fStatus').value;
-    let q = sb.from('pedidos').select('*, clientes(nome, email, telefone), itens_pedido(*)').order('criado_em', { ascending: false });
+    const si = $('#fSituacao').value;
+    let q = sb.from('pedidos').select('*, clientes(nome, email, telefone), itens_pedido(*), situacoes_pedido(nome)').order('criado_em', { ascending: false });
     if (st) q = q.eq('status', st);
+    if (si) q = q.eq('situacao_id', Number(si));
     const { data, error } = await q;
     if (error) throw error;
     return data.flatMap(p => p.itens_pedido.map(i => ({
-      pedido: p.id, data: new Date(p.criado_em).toLocaleString('pt-BR'), status: statusLabel(p.status),
+      pedido: p.id, data: new Date(p.criado_em).toLocaleString('pt-BR'), situacao: p.situacoes_pedido?.nome, status: statusLabel(p.status),
       cliente: p.clientes?.nome, email: p.clientes?.email, telefone: p.clientes?.telefone,
       cidade: [p.endereco_entrega?.cidade, p.endereco_entrega?.uf].filter(Boolean).join('/'),
       pagamento: p.forma_pagamento, parcelas: p.parcelas, subtotal: p.subtotal, desconto: p.desconto, juros: p.juros, item: i.descricao, qtd: i.quantidade, preco: i.preco_unitario, custo: i.preco_custo,
@@ -202,7 +210,7 @@ const RECARREGAR = {
   marcas: async () => { await carregarBase(); renderCategorias(); },
   atributos: async () => { await carregarBase(); renderCategorias(); },
 };
-const TITULO = { atributos: 'Atributos do produto', formas: 'Formas de pagamento', produtos: 'Produtos', estoque: 'Estoque', clientes: 'Clientes', categorias: 'Categorias', marcas: 'Marcas', pedidos: 'Pedidos' };
+const TITULO = { situacoes: 'Situações dos pedidos', atributos: 'Atributos do produto', formas: 'Formas de pagamento', produtos: 'Produtos', estoque: 'Estoque', clientes: 'Clientes', categorias: 'Categorias', marcas: 'Marcas', pedidos: 'Pedidos' };
 
 // ------------------------- EXPORTAR -------------------------
 async function exportar(tipo, modelo = false) {

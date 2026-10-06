@@ -419,7 +419,9 @@ const ocultar = p => cfgLoja.mostrar_precos === 'nunca' && ['pendente', 'recusad
 async function carregarPedidos() {
   const box = $('#contaPedidos');
   box.innerHTML = '<p class="muted">Carregando…</p>';
-  const { data: lista, error } = await sb.from('pedidos').select('*, itens_pedido(*)').order('criado_em', { ascending: false });
+  let { data: lista, error } = await sb.from('pedidos').select('*, itens_pedido(*), situacoes_pedido(nome, cor, visivel_cliente)')
+    .order('criado_em', { ascending: false });
+  if (error) ({ data: lista, error } = await sb.from('pedidos').select('*, itens_pedido(*)').order('criado_em', { ascending: false }));
   if (error) { box.innerHTML = `<p class="msg erro">${esc(erro(error))}</p>`; return; }
   if (!lista.length) { box.innerHTML = '<p class="vazio">Você ainda não fez pedidos.</p>'; return; }
   box.innerHTML = lista.map(p => `
@@ -427,7 +429,9 @@ async function carregarPedidos() {
       <div class="pedido-top">
         <b>Pedido #${p.id}</b>
         <span class="muted">${data(p.criado_em)}</span>
-        <span class="st st-${p.status}">${statusLabel(p.status)}</span>
+        ${p.situacoes_pedido?.visivel_cliente
+          ? `<span class="st" style="background:${hex(p.situacoes_pedido.cor)}22;color:${hex(p.situacoes_pedido.cor)}">${esc(p.situacoes_pedido.nome)}</span>`
+          : `<span class="st st-${p.status}">${statusLabel(p.status)}</span>`}
         <b>${ocultar(p) ? esc(cfgLoja.texto_sem_preco) : fmt(p.valor_total)}</b>
       </div>
       <ul>${p.itens_pedido.map(i => `<li>${i.quantidade}x ${esc(i.descricao)}${ocultar(p) ? '' : ` — ${fmt(i.preco_unitario)}`}</li>`).join('')}</ul>

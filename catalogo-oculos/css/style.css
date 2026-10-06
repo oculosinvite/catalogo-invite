@@ -246,3 +246,15 @@ input[type=radio] { margin: 3px 0 0; flex: none; }
 .esc-item { display: grid; gap: 2px; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
 .esc-item:hover { border-color: var(--accent); background: var(--soft); }
 #dlgNovoPedido .total-row { font-size: 17px; }
+
+.cad-tabs { flex-wrap: wrap; }
+.add-form { display: flex; gap: 8px; margin-bottom: 12px; max-width: 520px; }
+.add-form input { margin: 0 !important; }
+.aviso-atualizacao { background: #fdf3e1; color: #7a4b0c; border: 1px solid #f1d29b; border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; font-size: 14px; }
+.aviso-atualizacao code { background: #fff; padding: 1px 6px; border-radius: 6px; }
+.sit { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.historico { list-style: none; padding: 0; margin: 6px 0 0; font-size: 13px; display: grid; gap: 4px; }
+.historico li { display: flex; gap: 8px; }
+.historico .quando { color: var(--muted); min-width: 110px; }
+.sit-box { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.sit-box select, .sit-box input { margin: 0 !important; }

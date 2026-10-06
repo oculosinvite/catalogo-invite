@@ -39,6 +39,7 @@
   </nav>
 
   <main class="main">
+    <div id="avisoAtualizacao"></div>
     <!-- RESUMO -->
     <section data-pane="dashboard">
       <div class="main-head"><h1>Resumo</h1><button class="btn btn-ghost btn-sm" data-reload="dashboard">Atualizar</button></div>
@@ -56,14 +57,15 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-ghost btn-sm" data-exportar="pedidos" title="Baixar planilha Excel">⬇ Exportar</button>
         <button class="btn btn-accent" id="btnNovoPedido">+ Novo pedido</button>
-        <select id="fStatus" style="width:auto;margin:0">
-          <option value="pendente">Aguardando aprovação</option>
-          <option value="aprovado">Aprovados</option>
-          <option value="enviado">Enviados</option>
-          <option value="entregue">Entregues</option>
-          <option value="recusado">Recusados</option>
-          <option value="cancelado">Cancelados</option>
-          <option value="">Todos</option>
+        <select id="fSituacao" style="width:auto;margin:0" title="Filtrar pela situação"><option value="">Todas as situações</option></select>
+        <select id="fStatus" style="width:auto;margin:0" title="Filtrar pela etapa do sistema">
+          <option value="">Todas as etapas</option>
+          <option value="pendente" selected>Etapa: aguardando aprovação</option>
+          <option value="aprovado">Etapa: aprovados</option>
+          <option value="enviado">Etapa: enviados</option>
+          <option value="entregue">Etapa: entregues</option>
+          <option value="recusado">Etapa: recusados</option>
+          <option value="cancelado">Etapa: cancelados</option>
         </select>
         </div>
       </div>
@@ -98,49 +100,54 @@
       <div class="tbl-wrap"><table class="tbl" id="tblMov"></table></div>
     </section>
 
-    <!-- CATEGORIAS & MARCAS -->
+    <!-- CADASTROS (em abas) -->
     <section data-pane="categorias" class="hidden">
       <div class="main-head"><h1>Cadastros</h1></div>
-      <h2 style="font-size:20px;margin:0 0 12px">Categorias e marcas</h2>
-      <div class="det-grid" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr))">
-        <div class="panel">
-          <div class="main-head" style="margin-bottom:10px"><h3 style="margin:0">Categorias</h3><div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="categorias" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="categorias" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="categorias" title="Planilha em branco com instruções">Modelo</button></div></div>
-          <form id="formCat" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Nova categoria" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
-          <table class="tbl" id="tblCat"></table>
-        </div>
-        <div class="panel">
-          <div class="main-head" style="margin-bottom:10px"><h3 style="margin:0">Marcas</h3><div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="marcas" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="marcas" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="marcas" title="Planilha em branco com instruções">Modelo</button></div></div>
-          <form id="formMarca" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Nova marca" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
-          <table class="tbl" id="tblMarca"></table>
-        </div>
+      <div class="tabs cad-tabs" id="cadTabs">
+        <button type="button" data-cadtab="categorias" class="on">Categorias</button>
+        <button type="button" data-cadtab="marcas">Marcas</button>
+        <button type="button" data-cadtab="formato">Formato</button>
+        <button type="button" data-cadtab="material_armacao">Material da armação</button>
+        <button type="button" data-cadtab="material_lente">Material da lente</button>
+        <button type="button" data-cadtab="tipo_lente">Tipo de lente</button>
       </div>
-
-      <div class="main-head" style="margin:26px 0 12px">
-        <div><h2 style="font-size:20px;margin:0">Atributos do produto</h2>
-        <small class="muted">Opções que aparecem para escolher no cadastro do produto. Renomear aqui atualiza os produtos que usam a opção.</small></div>
-        <div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="atributos" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="atributos" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="atributos" title="Planilha em branco com instruções">Modelo</button></div>
+      <div style="max-width:900px">
+      <div class="panel cad-painel hidden" data-cad="categorias">
+        <div class="main-head" style="margin-bottom:6px"><h3 style="margin:0">Categorias</h3><div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="categorias" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="categorias" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="categorias" title="Planilha em branco com instruções">Modelo</button></div></div>
+        <p class="muted" style="margin:0 0 12px;font-size:13px">Aparecem como filtros no topo da loja. A ordem define a posição.</p>
+        <form id="formCat" class="add-form"><input name="nome" placeholder="Nova categoria" required><button class="btn btn-sm">Adicionar</button></form>
+        <table class="tbl" id="tblCat"></table>
       </div>
-      <div class="det-grid" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr))">
-        <div class="panel">
-          <h3>Formato</h3>
-          <form data-opcao-form="formato" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Novo formato" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
-          <table class="tbl" data-opcao-tbl="formato"></table>
-        </div>
-        <div class="panel">
-          <h3>Material da armação</h3>
-          <form data-opcao-form="material_armacao" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Novo material da armação" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
-          <table class="tbl" data-opcao-tbl="material_armacao"></table>
-        </div>
-        <div class="panel">
-          <h3>Material da lente</h3>
-          <form data-opcao-form="material_lente" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Novo material da lente" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
-          <table class="tbl" data-opcao-tbl="material_lente"></table>
-        </div>
-        <div class="panel">
-          <h3>Tipo de lente</h3>
-          <form data-opcao-form="tipo_lente" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Novo tipo de lente" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
-          <table class="tbl" data-opcao-tbl="tipo_lente"></table>
-        </div>
+      <div class="panel cad-painel hidden" data-cad="marcas">
+        <div class="main-head" style="margin-bottom:6px"><h3 style="margin:0">Marcas</h3><div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="marcas" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="marcas" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="marcas" title="Planilha em branco com instruções">Modelo</button></div></div>
+        <p class="muted" style="margin:0 0 12px;font-size:13px">Marca exibida no catálogo e na página do produto.</p>
+        <form id="formMarca" class="add-form"><input name="nome" placeholder="Nova marca" required><button class="btn btn-sm">Adicionar</button></form>
+        <table class="tbl" id="tblMarca"></table>
+      </div>
+      <div class="panel cad-painel hidden" data-cad="formato">
+        <div class="main-head" style="margin-bottom:6px"><h3 style="margin:0">Formato</h3><div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="atributos" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="atributos" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="atributos" title="Planilha em branco com instruções">Modelo</button></div></div>
+        <p class="muted" style="margin:0 0 12px;font-size:13px">Opções que aparecem para escolher no cadastro do produto. Renomear aqui atualiza os produtos que usam a opção. A planilha de atributos traz as 4 listas juntas (coluna Tipo).</p>
+        <form data-opcao-form="formato" class="add-form"><input name="nome" placeholder="Novo formato (ex.: Borboleta)" required><button class="btn btn-sm">Adicionar</button></form>
+        <table class="tbl" data-opcao-tbl="formato"></table>
+      </div>
+      <div class="panel cad-painel hidden" data-cad="material_armacao">
+        <div class="main-head" style="margin-bottom:6px"><h3 style="margin:0">Material da armação</h3><div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="atributos" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="atributos" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="atributos" title="Planilha em branco com instruções">Modelo</button></div></div>
+        <p class="muted" style="margin:0 0 12px;font-size:13px">Opções que aparecem para escolher no cadastro do produto. Renomear aqui atualiza os produtos que usam a opção. A planilha de atributos traz as 4 listas juntas (coluna Tipo).</p>
+        <form data-opcao-form="material_armacao" class="add-form"><input name="nome" placeholder="Novo material da armação" required><button class="btn btn-sm">Adicionar</button></form>
+        <table class="tbl" data-opcao-tbl="material_armacao"></table>
+      </div>
+      <div class="panel cad-painel hidden" data-cad="material_lente">
+        <div class="main-head" style="margin-bottom:6px"><h3 style="margin:0">Material da lente</h3><div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="atributos" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="atributos" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="atributos" title="Planilha em branco com instruções">Modelo</button></div></div>
+        <p class="muted" style="margin:0 0 12px;font-size:13px">Opções que aparecem para escolher no cadastro do produto. Renomear aqui atualiza os produtos que usam a opção. A planilha de atributos traz as 4 listas juntas (coluna Tipo).</p>
+        <form data-opcao-form="material_lente" class="add-form"><input name="nome" placeholder="Novo material da lente" required><button class="btn btn-sm">Adicionar</button></form>
+        <table class="tbl" data-opcao-tbl="material_lente"></table>
+      </div>
+      <div class="panel cad-painel hidden" data-cad="tipo_lente">
+        <div class="main-head" style="margin-bottom:6px"><h3 style="margin:0">Tipo de lente</h3><div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="atributos" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="atributos" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="atributos" title="Planilha em branco com instruções">Modelo</button></div></div>
+        <p class="muted" style="margin:0 0 12px;font-size:13px">Opções que aparecem para escolher no cadastro do produto. Renomear aqui atualiza os produtos que usam a opção. A planilha de atributos traz as 4 listas juntas (coluna Tipo).</p>
+        <form data-opcao-form="tipo_lente" class="add-form"><input name="nome" placeholder="Novo tipo de lente" required><button class="btn btn-sm">Adicionar</button></form>
+        <table class="tbl" data-opcao-tbl="tipo_lente"></table>
+      </div>
       </div>
     </section>
 
@@ -157,6 +164,55 @@
           <label style="max-width:420px">Texto exibido no lugar do preço <input name="texto_sem_preco" maxlength="60" required></label>
           <p class="muted" style="margin:0;font-size:13px">O preço fica oculto no servidor: ele nem chega ao navegador de quem não pode ver.</p>
           <div><button class="btn btn-accent">Salvar exibição de preços</button></div>
+        </form>
+      </div>
+
+      <div class="panel">
+        <div class="main-head" style="margin-bottom:10px">
+          <div><h3 style="margin:0">Situações dos pedidos</h3>
+          <small class="muted">Cadastre as situações que você usa (ex.: “Recebido a enviar”, “Recebido enviado”). A <b>ação do sistema</b> diz o que acontece com o pedido e o estoque ao escolher a situação.</small></div>
+          <div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="situacoes" title="Baixar planilha Excel">⬇ Exportar</button></div>
+        </div>
+        <form id="formSituacao" class="add-form"><input name="nome" placeholder="Nova situação (ex.: Aguardando lente do laboratório)" required><button class="btn btn-sm">Adicionar</button></form>
+        <div style="overflow-x:auto"><table class="tbl" id="tblSituacoes"></table></div>
+        <details style="margin-top:10px;font-size:13px" class="muted"><summary style="cursor:pointer">O que cada ação do sistema faz</summary>
+          <ul style="margin:6px 0 0;padding-left:18px;line-height:1.6">
+            <li><b>Só informativa</b> — muda apenas o nome da situação (ex.: Aguardando pagamento).</li>
+            <li><b>Aprovar (baixa estoque)</b> — se o pedido estiver aguardando, aprova e tira os produtos do estoque.</li>
+            <li><b>Enviar</b> — aprova (se preciso) e marca como enviado; aceita código de rastreio.</li>
+            <li><b>Entregar</b> — aprova (se preciso) e marca como entregue.</li>
+            <li><b>Recusar</b> — só para pedidos aguardando; não mexe no estoque.</li>
+            <li><b>Cancelar (devolve estoque)</b> — cancela; se já tinha baixado, devolve os produtos ao estoque.</li>
+          </ul>
+        </details>
+      </div>
+
+      <div class="panel" style="max-width:860px">
+        <h3>Avisos por e-mail de novos pedidos</h3>
+        <p class="muted" style="margin:-4px 0 12px;font-size:13px">A cada pedido novo, a loja manda um e-mail com cliente, endereço, itens e total. O envio é feito pelo Supabase usando um serviço de e-mail (Brevo ou Resend).</p>
+        <form id="formEmail" class="form-grid">
+          <label>E-mails que vão receber os avisos <small class="muted">(um por linha)</small>
+            <textarea name="emails_pedidos" placeholder="voce@seudominio.com&#10;vendas@seudominio.com"></textarea></label>
+          <label class="check"><input type="checkbox" name="notificar_painel"> Avisar também pedidos criados aqui no painel</label>
+          <label class="c2">Serviço de e-mail <select name="email_provedor"><option value="brevo">Brevo (grátis 300/dia)</option><option value="resend">Resend</option></select></label>
+          <label class="c2">E-mail do remetente <input name="email_remetente" type="email" placeholder="o e-mail verificado no serviço"></label>
+          <label class="c2">Nome do remetente <input name="email_remetente_nome" placeholder="Ex.: Invite Óculos"></label>
+          <label class="c4">Chave da API do serviço <input name="email_api_key" type="password" autocomplete="off"></label>
+          <div class="c2" style="align-self:end"><small class="muted" id="emailChaveInfo"></small></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-accent">Salvar avisos por e-mail</button>
+            <button type="button" class="btn btn-ghost" id="btnTesteEmail">Enviar e-mail de teste</button>
+          </div>
+          <div id="emailResultado"></div>
+          <details style="font-size:13px"><summary style="cursor:pointer"><b>Como configurar o Brevo (passo a passo)</b></summary>
+            <ol style="margin:6px 0 0;padding-left:18px;line-height:1.7">
+              <li>Crie uma conta grátis em <a href="https://www.brevo.com" target="_blank" rel="noopener">brevo.com</a>.</li>
+              <li>Em <b>Remetentes</b> (Senders), adicione o e-mail que vai aparecer como remetente e confirme pelo link que chegar nele.</li>
+              <li>Em <b>SMTP &amp; API → API Keys</b>, clique em <b>Gerar nova chave</b> e copie (começa com <code>xkeysib-</code>).</li>
+              <li>Cole aqui a chave, o e-mail do remetente e os e-mails que vão receber os avisos. Salve e clique em <b>Enviar e-mail de teste</b>.</li>
+              <li>No Supabase, a extensão <b>pg_net</b> precisa estar ativa (a atualização 05 já ativa; confira em Database → Extensions).</li>
+            </ol>
+          </details>
         </form>
       </div>
 

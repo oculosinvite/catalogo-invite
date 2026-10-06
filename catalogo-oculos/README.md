@@ -106,6 +106,17 @@ supabase/schema.sql banco de dados completo
 - **Pedidos → + Novo pedido** (ou "Novo pedido para este cliente" na ficha): escolha o cliente, os produtos/cores, quantidade e preço (pode ajustar), forma de pagamento e parcelas. Marque "Aprovar agora" para já baixar o estoque.
 - No detalhe de um pedido: **Ver cliente** e **Trocar cliente** (pedidos pendentes ou aprovados).
 
+## Situações dos pedidos (painel → Configurações)
+
+Cadastre as situações que você usa (ex.: "Recebido a enviar", "Recebido enviado", "Aguardando lente do laboratório"), com cor e se o cliente vê.
+Cada situação pode ter uma **ação do sistema**: aprovar (baixa estoque), enviar, entregar, recusar ou cancelar (devolve estoque) — ou ser só informativa.
+No detalhe do pedido, escolha a situação e clique em **Atualizar situação**; tudo fica no histórico do pedido. Na lista de pedidos dá para filtrar por situação.
+
+## Avisos por e-mail de novos pedidos (painel → Configurações)
+
+Cadastre os e-mails que recebem os avisos e a chave de um serviço de e-mail (Brevo grátis até 300/dia, ou Resend).
+O envio é feito pelo próprio Supabase (extensão pg_net). Use **Enviar e-mail de teste** para conferir.
+
 ## Configurações (painel → Configurações)
 
 - **Exibição de preços:** mostrar para todos, só para clientes logados, ou não mostrar. O preço é escondido no servidor (não chega ao navegador de quem não pode ver). Com "não mostrar", o cliente vê o valor do pedido depois que a loja aprova.

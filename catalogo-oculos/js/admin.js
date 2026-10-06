@@ -4,7 +4,7 @@
 const { $, $$, fmt, esc, hex, norm, img, erro, toast, data, statusLabel } = U;
 const CFG = window.APP_CONFIG;
 
-let categorias = [], marcas = [], produtos = [], clientes = [], opcoes = [], formas = [];
+let categorias = [], marcas = [], produtos = [], clientes = [], opcoes = [], formas = [], situacoes = [];
 let editId = null, coresEdit = [], fotoArquivo = null;
 const abertos = new Set(); // pedidos expandidos
 
@@ -21,6 +21,7 @@ async function verificarAcesso() {
   $('#telaLogin').classList.add('hidden');
   $('#telaPainel').classList.remove('hidden');
   await carregarBase();
+  verificarAtualizacoes();
   abrirSecao('dashboard');
 }
 
@@ -53,14 +54,35 @@ $$('.side [data-sec]').forEach(b => b.onclick = () => abrirSecao(b.dataset.sec))
 $$('[data-reload]').forEach(b => b.onclick = () => carregadores[b.dataset.reload]());
 
 async function carregarBase() {
-  const [c, m, o, fp] = await Promise.all([
+  const [c, m, o, fp, si] = await Promise.all([
     sb.from('categorias').select('*').order('ordem').order('nome'),
     sb.from('marcas').select('*').order('nome'),
     sb.from('opcoes').select('*').order('ordem').order('nome'),
     sb.from('formas_pagamento').select('*').order('ordem').order('nome'),
+    sb.from('situacoes_pedido').select('*').order('ordem').order('nome'),
   ]);
-  categorias = c.data || []; marcas = m.data || []; opcoes = o.data || []; formas = fp.data || [];
+  categorias = c.data || []; marcas = m.data || []; opcoes = o.data || []; formas = fp.data || []; situacoes = si.data || [];
+  const fs = $('#fSituacao'), atual = fs.value;
+  fs.innerHTML = '<option value="">Todas as situações</option>' + situacoes.map(x => `<option value="${x.id}">${esc(x.nome)}${x.ativo ? '' : ' (inativa)'}</option>`).join('');
+  fs.value = atual;
   atualizarPillPendentes();
+}
+
+// Avisa se alguma atualização do banco (arquivos supabase/atualizacao-XX) não foi rodada
+async function verificarAtualizacoes() {
+  const falta = r => r.error && /PGRST20[25]|42P01|42883|does not exist|Could not find/i.test(`${r.error.code} ${r.error.message}`);
+  const testes = [
+    ['02 (planilhas)',              sb.rpc('admin_importar_cadastro', { p_tabela: 'marcas', p_linhas: [] })],
+    ['03 (atributos, preço e pagamento)', sb.from('opcoes').select('id').limit(1)],
+    ['04 (clientes e pedidos pelo painel)', sb.rpc('admin_listar_clientes')],
+    ['05 (situações e e-mail)',     sb.from('situacoes_pedido').select('id').limit(1)],
+  ];
+  const res = await Promise.all(testes.map(([, q]) => q));
+  const faltando = testes.filter((t, i) => falta(res[i])).map(t => t[0]);
+  $('#avisoAtualizacao').innerHTML = faltando.length ? `<div class="aviso-atualizacao">
+    <b>Falta rodar no Supabase:</b> ${faltando.map(f => `atualização <code>${esc(f)}</code>`).join(', ')}.
+    Abra Supabase → SQL Editor, cole o arquivo <code>supabase/atualizacao-XX-....sql</code> correspondente (na ordem) e clique em Run.
+    Até lá, algumas telas podem ficar vazias.</div>` : '';
 }
 
 async function atualizarPillPendentes() {
@@ -96,18 +118,41 @@ async function carregarDashboard() {
 
 // ------------------------- pedidos -------------------------
 $('#fStatus').onchange = carregarPedidos;
+$('#fSituacao').onchange = carregarPedidos;
+
+const badgeSituacao = s => s ? `<span class="sit" style="background:${hex(s.cor)}22;color:${hex(s.cor)}"><span class="dot" style="background:${hex(s.cor)};width:8px;height:8px;border:0"></span>${esc(s.nome)}</span>` : '';
+const ACOES = { nenhuma: 'Só informativa', aprovar: 'Aprovar (baixa estoque)', enviar: 'Enviar', entregar: 'Entregar',
+                recusar: 'Recusar', cancelar: 'Cancelar (devolve estoque)' };
+
+function controleSituacao(p) {
+  const lista = situacoes.filter(s => s.ativo || s.id === p.situacao_id);
+  return `<div class="sit-box">
+    <b>Situação</b>
+    <div style="display:grid;gap:6px;margin-top:6px">
+      <select data-sit-sel="${p.id}">${lista.map(s => `<option value="${s.id}" data-acao="${s.acao}" ${s.id === p.situacao_id ? 'selected' : ''}>${esc(s.nome)}${s.acao !== 'nenhuma' ? ` — ${ACOES[s.acao].toLowerCase()}` : ''}</option>`).join('')}</select>
+      <input data-sit-rastreio="${p.id}" placeholder="Código de rastreio" value="${esc(p.codigo_rastreio || '')}" class="hidden">
+      <input data-sit-obs="${p.id}" placeholder="Observação (opcional; motivo em recusa/cancelamento)">
+      <button class="btn btn-sm" data-sit-salvar="${p.id}">Atualizar situação</button>
+    </div>
+    ${(p.pedidos_historico || []).length ? `<ul class="historico">${[...p.pedidos_historico].sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em))
+      .map(h => `<li><span class="quando">${data(h.criado_em)}</span><span><b>${esc(h.situacao || statusLabel(h.status))}</b>${h.observacao ? ` — ${esc(h.observacao)}` : ''}</span></li>`).join('')}</ul>` : ''}
+  </div>`;
+}
 
 async function carregarPedidos() {
-  const st = $('#fStatus').value;
-  let q = sb.from('pedidos').select('*, clientes(nome, email, telefone, cpf), itens_pedido(*)').order('criado_em', { ascending: false }).limit(200);
+  const st = $('#fStatus').value, si = $('#fSituacao').value;
+  const comSit = situacoes.length > 0;
+  let q = sb.from('pedidos').select(`*, clientes(nome, email, telefone, cpf), itens_pedido(*)${comSit ? ', situacoes_pedido(id, nome, cor), pedidos_historico(situacao, status, observacao, criado_em)' : ''}`)
+    .order('criado_em', { ascending: false }).limit(200);
   if (st) q = q.eq('status', st);
+  if (si) q = q.eq('situacao_id', Number(si));
   const { data: lista, error } = await q;
   if (error) return toast(erro(error), 'erro');
   atualizarPillPendentes();
 
   if (!lista.length) { $('#tblPedidos').innerHTML = '<tr><td class="vazio">Nenhum pedido aqui.</td></tr>'; return; }
   $('#tblPedidos').innerHTML = `
-    <thead><tr><th>#</th><th>Data</th><th>Cliente</th><th>Itens</th><th class="num">Total</th><th class="num">Lucro</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>#</th><th>Data</th><th>Cliente</th><th>Itens</th><th class="num">Total</th><th class="num">Lucro</th><th>Situação</th><th></th></tr></thead>
     <tbody>${lista.map(p => {
       const custo = p.itens_pedido.reduce((s, i) => s + i.preco_custo * i.quantidade, 0);
       const pecas = p.itens_pedido.reduce((s, i) => s + i.quantidade, 0);
@@ -121,7 +166,7 @@ async function carregarPedidos() {
         <td>${pecas} peça(s)</td>
         <td class="num"><b>${fmt(p.valor_total)}</b></td>
         <td class="num">${fmt(p.valor_total - custo)}</td>
-        <td><span class="st st-${p.status}">${statusLabel(p.status)}</span></td>
+        <td>${p.situacoes_pedido ? badgeSituacao(p.situacoes_pedido) + `<br><small class="muted">etapa: ${statusLabel(p.status).toLowerCase()}</small>` : `<span class="st st-${p.status}">${statusLabel(p.status)}</span>`}</td>
         <td><button class="btn btn-ghost btn-sm" data-ver="${p.id}">${abertos.has(p.id) ? 'Fechar' : 'Detalhes'}</button></td>
       </tr>
       <tr class="det ${abertos.has(p.id) ? '' : 'hidden'}" data-det="${p.id}"><td colspan="8">
@@ -148,6 +193,7 @@ async function carregarPedidos() {
             ${p.codigo_rastreio ? `<span>Rastreio: <b>${esc(p.codigo_rastreio)}</b></span>` : ''}
             ${p.aprovado_em ? `<span class="muted">Aprovado em ${data(p.aprovado_em)}</span>` : ''}
             <div class="row-actions" style="margin-top:10px">${acoesPedido(p)}</div>
+            ${comSit ? controleSituacao(p) : ''}
             <div class="row-actions">
               <button class="btn btn-ghost btn-sm" data-ficha="${p.cliente_id}">Ver cliente</button>
               ${['pendente', 'aprovado'].includes(p.status) ? `<button class="btn btn-ghost btn-sm" data-trocar-cli="${p.id}">Trocar cliente</button>` : ''}
@@ -168,7 +214,28 @@ function acoesPedido(p) {
   }
 }
 
+$('#tblPedidos').addEventListener('change', e => {
+  const sel = e.target.closest('[data-sit-sel]'); if (!sel) return;
+  const acao = sel.selectedOptions[0]?.dataset.acao;
+  $(`[data-sit-rastreio="${sel.dataset.sitSel}"]`).classList.toggle('hidden', acao !== 'enviar');
+});
 $('#tblPedidos').addEventListener('click', async e => {
+  const bs = e.target.closest('[data-sit-salvar]');
+  if (bs) {
+    const id = Number(bs.dataset.sitSalvar), sel = $(`[data-sit-sel="${id}"]`);
+    const s = situacoes.find(x => x.id === Number(sel.value));
+    const aviso = { aprovar: 'O pedido será aprovado e o estoque baixado (se ainda não foi).', enviar: 'O pedido será marcado como enviado (e aprovado, se ainda não foi).',
+                    entregar: 'O pedido será marcado como entregue.', recusar: 'O pedido será recusado.', cancelar: 'O pedido será cancelado e o estoque devolvido (se já tinha baixado).' }[s.acao];
+    if (aviso && !confirm(`Mudar o pedido #${id} para "${s.nome}"?\n\n${aviso}`)) return;
+    bs.disabled = true;
+    const { error } = await sb.rpc('admin_definir_situacao', { p_pedido_id: id, p_situacao_id: s.id,
+      p_observacao: $(`[data-sit-obs="${id}"]`).value || null, p_rastreio: $(`[data-sit-rastreio="${id}"]`).value || null });
+    bs.disabled = false;
+    if (error) return toast(erro(error), 'erro');
+    toast(`Pedido #${id}: ${s.nome}`, 'ok');
+    abertos.add(id);
+    return carregarPedidos();
+  }
   const ver = e.target.closest('[data-ver]');
   if (ver) {
     const id = Number(ver.dataset.ver);
@@ -218,6 +285,8 @@ const CADASTROS = {
                 aviso: 'Os produtos desta marca ficarão "sem marca".' },
   opcoes:     { nome: id => opcoes.find(x => x.id === id)?.nome, recarregar: async () => { await carregarBase(); renderCategorias(); },
                 aviso: 'Os produtos que usam esta opção continuam com o valor gravado.' },
+  situacoes_pedido: { nome: id => situacoes.find(x => x.id === id)?.nome, recarregar: async () => { await carregarBase(); renderSituacoes(); },
+                aviso: 'Pedidos que estão nesta situação ficarão sem situação definida (o andamento do pedido não muda).' },
   formas_pagamento: { nome: id => formas.find(x => x.id === id)?.nome, recarregar: async () => { await carregarBase(); renderFormas(); },
                 aviso: 'Pedidos antigos continuam mostrando esta forma de pagamento.' },
   clientes:   { nome: id => clientes.find(x => x.id === id)?.nome, recarregar: () => carregarClientes(),
@@ -536,7 +605,15 @@ $('#tblEstoque').addEventListener('click', async e => {
 });
 
 // ------------------------- categorias e marcas -------------------------
+let cadAba = 'categorias';
+$$('#cadTabs [data-cadtab]').forEach(b => b.onclick = () => { cadAba = b.dataset.cadtab; mostrarCadAba(); });
+function mostrarCadAba() {
+  $$('#cadTabs [data-cadtab]').forEach(b => b.classList.toggle('on', b.dataset.cadtab === cadAba));
+  $$('.cad-painel').forEach(p => p.classList.toggle('hidden', p.dataset.cad !== cadAba));
+}
+
 function renderCategorias() {
+  mostrarCadAba();
   const qtd = (campo, id) => produtos.filter(p => p[campo] === id).length;
   $('#tblCat').innerHTML = categorias.length ? `
     <thead><tr><th>Nome</th><th title="Ordem no menu da loja">Ordem</th><th>Status</th><th></th></tr></thead>
@@ -601,7 +678,10 @@ $('#formMarca').onsubmit = async e => {
 
 // ------------------------- configurações -------------------------
 async function carregarConfig() {
-  const [{ data: cfg }] = await Promise.all([sb.from('configuracoes').select('*').eq('id', 1).maybeSingle(), carregarBase()]);
+  const [{ data: cfg }, { data: notif }] = await Promise.all([
+    sb.from('configuracoes').select('*').eq('id', 1).maybeSingle(), sb.rpc('admin_obter_notificacoes'), carregarBase()]);
+  preencherEmail(notif);
+  renderSituacoes();
   const f = $('#formConfig');
   const m = cfg?.mostrar_precos || 'sempre';
   $$('[name=mostrar_precos]', f).forEach(r => r.checked = r.value === m);
@@ -616,6 +696,80 @@ $('#formConfig').onsubmit = async e => {
   const { error } = await sb.from('configuracoes').update(dados).eq('id', 1);
   if (error) return toast(erro(error), 'erro');
   toast('Exibição de preços salva', 'ok');
+};
+
+// ---- situações ----
+function renderSituacoes() {
+  $('#tblSituacoes').innerHTML = situacoes.length ? `
+    <thead><tr><th>Cor</th><th>Nome</th><th>Ação do sistema</th><th title="O cliente vê esta situação em Minha conta">Cliente vê</th>
+      <th title="Situação dada a todo pedido novo">Inicial</th><th>Ordem</th><th>Status</th><th></th></tr></thead>
+    <tbody>${situacoes.map(s => `<tr>
+      <td><input type="color" value="${hex(s.cor)}" data-tab="situacoes_pedido" data-id="${s.id}" data-k="cor" style="width:40px;height:34px;padding:0;border:1px solid var(--line);border-radius:8px"></td>
+      <td><input value="${esc(s.nome)}" data-tab="situacoes_pedido" data-id="${s.id}" data-k="nome" style="min-width:170px"></td>
+      <td><select data-tab="situacoes_pedido" data-id="${s.id}" data-k="acao" style="min-width:180px">${Object.entries(ACOES).map(([k, v]) => `<option value="${k}" ${k === s.acao ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
+      <td style="text-align:center"><input type="checkbox" ${s.visivel_cliente ? 'checked' : ''} data-tab="situacoes_pedido" data-id="${s.id}" data-k="visivel_cliente"></td>
+      <td style="text-align:center"><input type="radio" name="sitInicial" ${s.inicial ? 'checked' : ''} data-tab="situacoes_pedido" data-id="${s.id}" data-k="inicial"></td>
+      <td><input type="number" value="${s.ordem}" data-tab="situacoes_pedido" data-id="${s.id}" data-k="ordem" style="width:66px"></td>
+      <td>${badgeStatus(s.ativo)}</td>
+      <td>${botoesStatus('situacoes_pedido', s.id, s.ativo)}</td>
+    </tr>`).join('')}</tbody>` : '<tr><td class="muted">Nenhuma situação cadastrada.</td></tr>';
+}
+$('#formSituacao').onsubmit = async e => {
+  e.preventDefault();
+  const ordem = Math.max(0, ...situacoes.map(s => s.ordem)) + 1;
+  const { error } = await sb.from('situacoes_pedido').insert({ nome: e.target.nome.value.trim(), ordem });
+  if (error) return toast(erro(error), 'erro');
+  e.target.reset(); await carregarBase(); renderSituacoes();
+  toast('Situação criada. Escolha a ação do sistema, se houver.', 'ok');
+};
+
+// ---- avisos por e-mail ----
+function preencherEmail(n) {
+  const f = $('#formEmail');
+  if (!n) { $('#emailChaveInfo').textContent = ''; return; }
+  f.emails_pedidos.value = (n.emails_pedidos || []).join('\n');
+  f.notificar_painel.checked = !!n.notificar_painel;
+  f.email_provedor.value = n.email_provedor || 'brevo';
+  f.email_remetente.value = n.email_remetente || '';
+  f.email_remetente_nome.value = n.email_remetente_nome || '';
+  f.email_api_key.value = '';
+  f.email_api_key.placeholder = n.tem_chave ? `chave salva (termina em …${n.final_chave}) — deixe vazio para manter` : 'cole a chave da API aqui';
+  $('#emailChaveInfo').innerHTML = n.tem_chave ? '✅ Chave cadastrada' : 'Nenhuma chave cadastrada';
+}
+$('#formEmail').onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target;
+  const pasta = location.origin + location.pathname.replace(/\/[^/]*$/, '');
+  const dados = {
+    emails_pedidos: f.emails_pedidos.value.split(/[\n,;]+/).map(x => x.trim()).filter(Boolean),
+    notificar_painel: f.notificar_painel.checked, email_provedor: f.email_provedor.value,
+    email_remetente: f.email_remetente.value, email_remetente_nome: f.email_remetente_nome.value,
+    email_api_key: f.email_api_key.value, url_site: pasta,
+  };
+  const { error } = await sb.rpc('admin_salvar_notificacoes', { p: dados });
+  if (error) return toast(erro(error), 'erro');
+  toast('Avisos por e-mail salvos', 'ok');
+  const { data } = await sb.rpc('admin_obter_notificacoes'); preencherEmail(data);
+};
+$('#btnTesteEmail').onclick = async () => {
+  const box = $('#emailResultado'), btn = $('#btnTesteEmail');
+  btn.disabled = true; box.innerHTML = '<div class="msg">Enviando…</div>';
+  const { data: id, error } = await sb.rpc('admin_testar_email');
+  if (error) { btn.disabled = false; box.innerHTML = `<div class="msg erro">${esc(erro(error))}</div>`; return; }
+  for (let i = 0; i < 12; i++) {
+    await new Promise(r => setTimeout(r, 1500));
+    const { data: st } = await sb.rpc('admin_status_email', { p_id: id });
+    if (st && !st.pendente) {
+      btn.disabled = false;
+      box.innerHTML = st.ok
+        ? '<div class="msg ok"><b>E-mail enviado!</b> Confira a caixa de entrada (e o spam) dos e-mails cadastrados.</div>'
+        : `<div class="msg erro"><b>O serviço recusou o envio</b> (código ${st.status ?? '—'}): ${esc(st.erro || '')}<br>
+           Confira a chave da API e se o e-mail do remetente está verificado no serviço.</div>`;
+      return;
+    }
+  }
+  btn.disabled = false;
+  box.innerHTML = '<div class="msg">O envio ainda está na fila. Se não chegar em alguns minutos, confira se a extensão <b>pg_net</b> está ativa no Supabase (Database → Extensions).</div>';
 };
 
 function simulacao(f, valor = 300) {
@@ -644,7 +798,9 @@ function renderFormas() {
     </tr>`).join('')}</tbody>` : '<tr><td class="muted">Nenhuma forma de pagamento. Sem formas cadastradas, o pedido fica "a combinar".</td></tr>';
 }
 $('[data-pane="config"]').addEventListener('change', async e => {
-  const el = e.target; if (el.dataset.tab !== 'formas_pagamento') return;
+  const el = e.target;
+  if (el.dataset.tab === 'situacoes_pedido') return salvarSituacaoCampo(el);
+  if (el.dataset.tab !== 'formas_pagamento') return;
   let v = el.type === 'number' ? Number(el.value) : el.value.trim() || null;
   if (el.dataset.k === 'nome' && !v) return toast('O nome não pode ficar vazio', 'erro');
   const f = formas.find(x => x.id === Number(el.dataset.id));
@@ -659,6 +815,21 @@ $('[data-pane="config"]').addEventListener('change', async e => {
   toast('Salvo', 'ok');
   await carregarBase(); renderFormas();
 });
+async function salvarSituacaoCampo(el) {
+  const id = Number(el.dataset.id), k = el.dataset.k;
+  let v = el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.type === 'number' ? Number(el.value) : el.value.trim();
+  if (k === 'nome' && !v) return toast('O nome não pode ficar vazio', 'erro');
+  if (k === 'inicial') {   // só uma situação inicial
+    const atual = situacoes.find(s => s.inicial && s.id !== id);
+    if (atual) { const r = await sb.from('situacoes_pedido').update({ inicial: false }).eq('id', atual.id); if (r.error) return toast(erro(r.error), 'erro'); }
+    v = true;
+  }
+  const { error } = await sb.from('situacoes_pedido').update({ [k]: v }).eq('id', id);
+  if (error) { toast(erro(error), 'erro'); await carregarBase(); return renderSituacoes(); }
+  toast('Salvo', 'ok');
+  await carregarBase(); renderSituacoes();
+}
+
 $('#formForma').onsubmit = async e => {
   e.preventDefault();
   const ordem = Math.max(0, ...formas.map(f => f.ordem)) + 1;
