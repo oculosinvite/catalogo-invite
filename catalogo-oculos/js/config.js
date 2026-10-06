@@ -35,6 +35,7 @@ window.U = {
     if (/Email not confirmed/i.test(m)) return 'Confirme seu e-mail antes de entrar (veja sua caixa de entrada)';
     if (/already registered/i.test(m)) return 'Este e-mail já tem cadastro. Use "Entrar".';
     if (/Password should be/i.test(m)) return 'A senha precisa ter pelo menos 6 caracteres';
+    if (/foreign key|violates.*constraint.*itens_pedido/i.test(m)) return 'Não é possível excluir: já existem pedidos com este item. Use "Inativar" para tirá-lo da loja sem perder o histórico.';
     if (/duplicate key.*sku/i.test(m)) return 'Já existe um produto/cor com esse SKU';
     if (/duplicate key/i.test(m)) return 'Registro duplicado (nome ou código já existe)';
     if (/Failed to fetch|NetworkError/i.test(m)) return 'Sem conexão com o servidor. Verifique o js/config.js';

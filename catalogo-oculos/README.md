@@ -99,6 +99,20 @@ js/admin.js         lógica do painel
 supabase/schema.sql banco de dados completo
 ```
 
+## Planilhas (importar e exportar)
+
+Em **Produtos, Estoque, Categorias, Marcas e Clientes** há três botões:
+- **Exportar** — baixa tudo em Excel (.xlsx), com uma aba "Instruções".
+- **Modelo** — planilha em branco com os títulos certos.
+- **Importar** — lê .xlsx, .xls ou .csv, mostra uma prévia e só grava quando você confirma.
+
+Regras:
+- Produtos: **uma linha por cor**. O SKU produto identifica o modelo (existe = atualiza, não existe = cadastra). Dados do produto ficam na 1ª linha do modelo.
+- Clientes: o **e-mail** identifica. Cliente importado cria o login na loja com o mesmo e-mail e o cadastro é ligado automaticamente.
+- Estoque: informe a quantidade contada; o sistema calcula a diferença e registra no histórico.
+- Célula vazia mantém o valor atual. Se uma linha tiver erro, **nada é gravado** e aparece qual linha corrigir.
+- Pedidos tem só **Exportar** (relatório com custo, venda e lucro por item).
+
 ## Dúvidas comuns
 
 - **"Não foi possível carregar o catálogo"** → confira a URL e a chave em `js/config.js`.

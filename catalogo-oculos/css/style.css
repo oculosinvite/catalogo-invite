@@ -222,3 +222,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
 .foto-prev { width: 140px; aspect-ratio: 4/3; object-fit: cover; border-radius: 10px; background: var(--soft); border: 1px solid var(--line); }
 fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 0; min-width: 0; }
 legend { padding: 0 6px; font-weight: 600; font-size: 14px; }
+
+.acoes { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; white-space: nowrap; }
+.acoes .acoes { display: contents; }
+#impCorpo td { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side .pill:empty { display: none; }

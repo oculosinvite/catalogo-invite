@@ -52,7 +52,9 @@
     <section data-pane="pedidos" class="hidden">
       <div class="main-head">
         <h1>Pedidos</h1>
-        <select id="fStatus" style="width:auto">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-ghost btn-sm" data-exportar="pedidos" title="Baixar planilha Excel">⬇ Exportar</button>
+        <select id="fStatus" style="width:auto;margin:0">
           <option value="pendente">Aguardando aprovação</option>
           <option value="aprovado">Aprovados</option>
           <option value="enviado">Enviados</option>
@@ -61,6 +63,7 @@
           <option value="cancelado">Cancelados</option>
           <option value="">Todos</option>
         </select>
+        </div>
       </div>
       <div class="tbl-wrap"><table class="tbl" id="tblPedidos"></table></div>
     </section>
@@ -70,7 +73,9 @@
       <div class="main-head">
         <h1>Produtos</h1>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="fStatusProd" style="width:auto;margin:0"><option value="">Todos</option><option value="true">Ativos</option><option value="false">Inativos</option></select>
           <input id="buscaProd" type="search" placeholder="Buscar..." style="width:220px;margin:0">
+          <button class="btn btn-ghost btn-sm" data-exportar="produtos" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="produtos" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="produtos" title="Planilha em branco com instruções">Modelo</button>
           <button class="btn btn-accent" id="btnNovoProd">+ Novo produto</button>
         </div>
       </div>
@@ -81,7 +86,10 @@
     <section data-pane="estoque" class="hidden">
       <div class="main-head">
         <h1>Estoque</h1>
-        <label class="check"><input type="checkbox" id="soBaixo"> Mostrar só estoque baixo</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <label class="check"><input type="checkbox" id="soBaixo"> Só estoque baixo</label>
+          <button class="btn btn-ghost btn-sm" data-exportar="estoque" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="estoque" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="estoque" title="Planilha em branco com instruções">Modelo</button>
+        </div>
       </div>
       <div class="tbl-wrap" style="margin-bottom:24px"><table class="tbl" id="tblEstoque"></table></div>
       <h3 style="margin-bottom:10px">Últimas movimentações</h3>
@@ -91,14 +99,14 @@
     <!-- CATEGORIAS & MARCAS -->
     <section data-pane="categorias" class="hidden">
       <div class="main-head"><h1>Categorias e marcas</h1></div>
-      <div class="det-grid" style="grid-template-columns:1fr 1fr">
+      <div class="det-grid" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr))">
         <div class="panel">
-          <h3>Categorias</h3>
+          <div class="main-head" style="margin-bottom:10px"><h3 style="margin:0">Categorias</h3><div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="categorias" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="categorias" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="categorias" title="Planilha em branco com instruções">Modelo</button></div></div>
           <form id="formCat" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Nova categoria" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
           <table class="tbl" id="tblCat"></table>
         </div>
         <div class="panel">
-          <h3>Marcas</h3>
+          <div class="main-head" style="margin-bottom:10px"><h3 style="margin:0">Marcas</h3><div class="acoes"><button class="btn btn-ghost btn-sm" data-exportar="marcas" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="marcas" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="marcas" title="Planilha em branco com instruções">Modelo</button></div></div>
           <form id="formMarca" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Nova marca" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
           <table class="tbl" id="tblMarca"></table>
         </div>
@@ -107,7 +115,7 @@
 
     <!-- CLIENTES -->
     <section data-pane="clientes" class="hidden">
-      <div class="main-head"><h1>Clientes</h1><input id="buscaCli" type="search" placeholder="Buscar nome, e-mail, cidade..." style="width:260px;margin:0"></div>
+      <div class="main-head"><h1>Clientes</h1><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn btn-ghost btn-sm" data-exportar="clientes" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="clientes" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="clientes" title="Planilha em branco com instruções">Modelo</button><select id="fStatusCli" style="width:auto;margin:0"><option value="">Todos</option><option value="true">Ativos</option><option value="false">Inativos</option></select><input id="buscaCli" type="search" placeholder="Buscar nome, e-mail, cidade..." style="width:260px;margin:0"></div></div>
       <div class="tbl-wrap"><table class="tbl" id="tblClientes"></table></div>
     </section>
   </main>
@@ -185,10 +193,22 @@
 <datalist id="lLente"><option>Policarbonato</option><option>Nylon</option><option>Cristal</option><option>CR-39</option><option>Acrílico</option></datalist>
 <datalist id="lTipo"><option>Solar</option><option>Receituário (grau)</option><option>Proteção luz azul</option><option>Fotossensível</option><option>Espelhada</option></datalist>
 
+<!-- ===== Importar planilha ===== -->
+<dialog id="dlgImport">
+  <div class="dlg-head"><h2 style="font-size:22px" id="impTitulo">Importar</h2><button type="button" class="x" data-close>&times;</button></div>
+  <div class="dlg-body" id="impCorpo"></div>
+  <div class="dlg-head" style="position:sticky;bottom:0;border-top:1px solid var(--line);border-bottom:0;justify-content:flex-end;gap:8px">
+    <button type="button" class="btn btn-ghost" data-close>Fechar</button>
+    <button type="button" class="btn btn-accent" id="btnImpConfirmar">Confirmar importação</button>
+  </div>
+</dialog>
+
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/planilhas.js"></script>
 </body>
 </html>

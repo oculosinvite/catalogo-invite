@@ -195,7 +195,55 @@ $('#tblPedidos').addEventListener('click', async e => {
   carregarPedidos();
 });
 
+// ------------------------- inativar / excluir (todas as telas) -------------------------
+const badgeStatus = ativo => ativo ? '<span class="st st-entregue">Ativo</span>' : '<span class="st st-cancelado">Inativo</span>';
+const botoesStatus = (tipo, id, ativo) => `<div class="acoes">
+  <button class="btn btn-ghost btn-sm" data-toggle="${tipo}" data-id="${id}" data-v="${!ativo}">${ativo ? 'Inativar' : 'Ativar'}</button>
+  <button class="btn btn-bad btn-sm" data-excluir="${tipo}" data-id="${id}">Excluir</button></div>`;
+
+const CADASTROS = {
+  produtos:   { nome: id => produtos.find(x => x.id === id)?.nome, recarregar: () => carregarProdutos(),
+                aviso: 'As fotos, cores e o histórico de estoque deste produto também serão apagados.' },
+  categorias: { nome: id => categorias.find(x => x.id === id)?.nome, recarregar: async () => { await carregarBase(); renderCategorias(); },
+                aviso: 'Os produtos desta categoria ficarão "sem categoria".' },
+  marcas:     { nome: id => marcas.find(x => x.id === id)?.nome, recarregar: async () => { await carregarBase(); renderCategorias(); },
+                aviso: 'Os produtos desta marca ficarão "sem marca".' },
+  clientes:   { nome: id => clientes.find(x => x.id === id)?.nome, recarregar: () => carregarClientes(),
+                aviso: 'O login do cliente também será apagado.' },
+};
+
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-toggle]');
+  if (t) {
+    const tipo = t.dataset.toggle, ativar = t.dataset.v === 'true';
+    const id = tipo === 'clientes' ? t.dataset.id : Number(t.dataset.id);
+    const nome = CADASTROS[tipo].nome(id);
+    if (!ativar && !confirm(`Inativar "${nome}"?\n\n` + (tipo === 'clientes'
+        ? 'O cliente continua cadastrado, mas não consegue fazer novos pedidos.'
+        : 'Ele deixa de aparecer na loja, mas continua salvo e pode ser reativado.'))) return;
+    const dados = tipo === 'clientes' ? { bloqueado: !ativar } : { ativo: ativar };
+    const { error } = await sb.from(tipo).update(dados).eq('id', id);
+    if (error) return toast(erro(error), 'erro');
+    toast(`"${nome}" ${ativar ? 'ativado' : 'inativado'}`, 'ok');
+    return CADASTROS[tipo].recarregar();
+  }
+  const x = e.target.closest('[data-excluir]');
+  if (x) {
+    const tipo = x.dataset.excluir;
+    const id = tipo === 'clientes' ? x.dataset.id : Number(x.dataset.id);
+    const nome = CADASTROS[tipo].nome(id);
+    if (!confirm(`EXCLUIR definitivamente "${nome}"?\n\n${CADASTROS[tipo].aviso}\nEsta ação não pode ser desfeita.`)) return;
+    const { error } = tipo === 'clientes'
+      ? await sb.rpc('admin_excluir_cliente', { p_id: id })
+      : await sb.from(tipo).delete().eq('id', id);
+    if (error) return toast(erro(error), 'erro');
+    toast(`"${nome}" excluído`, 'ok');
+    return CADASTROS[tipo].recarregar();
+  }
+});
+
 // ------------------------- produtos -------------------------
+$('#fStatusProd').onchange = renderProdutos;
 $('#buscaProd').oninput = renderProdutos;
 $('#btnNovoProd').onclick = () => abrirProduto(null);
 
@@ -209,8 +257,9 @@ async function carregarProdutos() {
 
 function renderProdutos() {
   const b = norm($('#buscaProd').value);
-  const lista = produtos.filter(p => !b || norm([p.nome, p.sku, p.categorias?.nome, p.marcas?.nome].join(' ')).includes(b));
-  if (!lista.length) { $('#tblProdutos').innerHTML = '<tr><td class="vazio">Nenhum produto. Clique em “+ Novo produto”.</td></tr>'; return; }
+  const st = $('#fStatusProd').value;
+  const lista = produtos.filter(p => (!st || String(p.ativo) === st) && (!b || norm([p.nome, p.sku, p.categorias?.nome, p.marcas?.nome].join(' ')).includes(b)));
+  if (!lista.length) { $('#tblProdutos').innerHTML = '<tr><td class="vazio">Nenhum produto encontrado.</td></tr>'; return; }
   $('#tblProdutos').innerHTML = `
     <thead><tr><th></th><th>Produto</th><th>Categoria</th><th>Cores</th><th class="num">Custo</th><th class="num">Venda</th><th class="num">Margem</th><th class="num">Estoque</th><th>Status</th><th></th></tr></thead>
     <tbody>${lista.map(p => {
@@ -227,8 +276,8 @@ function renderProdutos() {
         <td class="num">${p.preco_promocional != null ? `<s class="muted">${fmt(p.preco_venda)}</s><br>` : ''}${fmt(venda)}</td>
         <td class="num">${margem}</td>
         <td class="num ${estoque === 0 ? 'baixo' : ''}">${estoque}</td>
-        <td>${p.ativo ? '<span class="st st-entregue">Ativo</span>' : '<span class="st">Inativo</span>'}${p.destaque ? ' ⭐' : ''}</td>
-        <td><button class="btn btn-ghost btn-sm" data-edit="${p.id}">Editar</button></td>
+        <td>${badgeStatus(p.ativo)}${p.destaque ? ' ⭐' : ''}</td>
+        <td><div class="acoes"><button class="btn btn-sm" data-edit="${p.id}">Editar</button>${botoesStatus('produtos', p.id, p.ativo)}</div></td>
       </tr>`;
     }).join('')}</tbody>`;
 }
@@ -242,8 +291,8 @@ function abrirProduto(id) {
   editId = id; fotoArquivo = null;
   const p = id ? produtos.find(x => x.id === id) : null;
 
-  f.categoria_id.innerHTML = '<option value="">— sem categoria —</option>' + categorias.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
-  f.marca_id.innerHTML = '<option value="">— sem marca —</option>' + marcas.map(m => `<option value="${m.id}">${esc(m.nome)}</option>`).join('');
+  f.categoria_id.innerHTML = '<option value="">— sem categoria —</option>' + categorias.map(c => `<option value="${c.id}">${esc(c.nome)}${c.ativo ? '' : ' (inativa)'}</option>`).join('');
+  f.marca_id.innerHTML = '<option value="">— sem marca —</option>' + marcas.map(m => `<option value="${m.id}">${esc(m.nome)}${m.ativo ? '' : ' (inativa)'}</option>`).join('');
 
   $('#tituloProduto').textContent = p ? `Editar: ${p.nome}` : 'Novo produto';
   const campos = ['nome', 'sku', 'categoria_id', 'marca_id', 'genero', 'descricao', 'formato', 'material_armacao', 'material_lente',
@@ -276,7 +325,7 @@ function renderCores() {
         <input type="file" data-foto accept="image/*" style="width:190px;padding:4px">
       </div></td>
       <td><input type="checkbox" data-k="ativo" ${c.ativo ? 'checked' : ''}></td>
-      <td>${c.id ? '' : `<button type="button" class="x" data-rmcor title="Remover">&times;</button>`}</td>
+      <td><button type="button" class="x" data-rmcor title="Excluir esta cor" style="color:var(--bad)">&times;</button></td>
     </tr>`).join('');
 }
 
@@ -291,9 +340,17 @@ $('#coresBody').addEventListener('change', e => {
   c._file = e.target.files[0];
   if (c._file) { c._preview = URL.createObjectURL(c._file); e.target.previousElementSibling.src = c._preview; }
 });
-$('#coresBody').addEventListener('click', e => {
+$('#coresBody').addEventListener('click', async e => {
   if (!e.target.closest('[data-rmcor]')) return;
-  coresEdit.splice(Number(e.target.closest('[data-i]').dataset.i), 1); renderCores();
+  const i = Number(e.target.closest('[data-i]').dataset.i), c = coresEdit[i];
+  if (c.id) {
+    if (!confirm(`Excluir a cor "${c.cor}" deste produto?\nO estoque e o histórico dessa cor serão apagados.\n\nSe ela já foi vendida, não será possível excluir — desmarque "Ativa" para escondê-la.`)) return;
+    const { error } = await sb.from('produto_cores').delete().eq('id', c.id);
+    if (error) return toast(erro(error), 'erro');
+    toast(`Cor "${c.cor}" excluída`, 'ok');
+    carregarProdutos();
+  }
+  coresEdit.splice(i, 1); renderCores();
 });
 $('#btnAddCor').onclick = () => {
   coresEdit.push({ cor: '', cor_hex: '#222222', cor_lente: '', sku: '', estoque: 0, estoque_minimo: 2, ativo: true });
@@ -440,15 +497,22 @@ $('#tblEstoque').addEventListener('click', async e => {
 
 // ------------------------- categorias e marcas -------------------------
 function renderCategorias() {
-  $('#tblCat').innerHTML = categorias.map(c => `<tr>
+  const qtd = (campo, id) => produtos.filter(p => p[campo] === id).length;
+  $('#tblCat').innerHTML = categorias.length ? `
+    <thead><tr><th>Nome</th><th title="Ordem no menu da loja">Ordem</th><th>Status</th><th></th></tr></thead>
+    <tbody>${categorias.map(c => `<tr>
       <td><input value="${esc(c.nome)}" data-tab="categorias" data-id="${c.id}" data-k="nome"></td>
-      <td style="width:80px"><input type="number" value="${c.ordem}" title="Ordem no menu" data-tab="categorias" data-id="${c.id}" data-k="ordem"></td>
-      <td style="width:90px"><label class="check"><input type="checkbox" ${c.ativo ? 'checked' : ''} data-tab="categorias" data-id="${c.id}" data-k="ativo"> ativa</label></td>
-    </tr>`).join('') || '<tr><td class="muted">Nenhuma categoria.</td></tr>';
-  $('#tblMarca').innerHTML = marcas.map(m => `<tr>
+      <td style="width:84px"><input type="number" value="${c.ordem}" data-tab="categorias" data-id="${c.id}" data-k="ordem"></td>
+      <td>${badgeStatus(c.ativo)}</td>
+      <td>${botoesStatus('categorias', c.id, c.ativo)}</td>
+    </tr>`).join('')}</tbody>` : '<tr><td class="muted">Nenhuma categoria.</td></tr>';
+  $('#tblMarca').innerHTML = marcas.length ? `
+    <thead><tr><th>Nome</th><th>Status</th><th></th></tr></thead>
+    <tbody>${marcas.map(m => `<tr>
       <td><input value="${esc(m.nome)}" data-tab="marcas" data-id="${m.id}" data-k="nome"></td>
-      <td style="width:90px"><label class="check"><input type="checkbox" ${m.ativo ? 'checked' : ''} data-tab="marcas" data-id="${m.id}" data-k="ativo"> ativa</label></td>
-    </tr>`).join('') || '<tr><td class="muted">Nenhuma marca.</td></tr>';
+      <td>${badgeStatus(m.ativo)}</td>
+      <td>${botoesStatus('marcas', m.id, m.ativo)}</td>
+    </tr>`).join('')}</tbody>` : '<tr><td class="muted">Nenhuma marca.</td></tr>';
 }
 
 $('[data-pane="categorias"]').addEventListener('change', async e => {
@@ -473,6 +537,7 @@ $('#formMarca').onsubmit = async e => {
 
 // ------------------------- clientes -------------------------
 $('#buscaCli').oninput = renderClientes;
+$('#fStatusCli').onchange = renderClientes;
 
 async function carregarClientes() {
   const { data: lista, error } = await sb.from('clientes').select('*, pedidos(count)').order('criado_em', { ascending: false });
@@ -482,29 +547,23 @@ async function carregarClientes() {
 
 function renderClientes() {
   const b = norm($('#buscaCli').value);
-  const lista = clientes.filter(c => !b || norm([c.nome, c.email, c.cidade, c.telefone, c.cpf].join(' ')).includes(b));
+  const st = $('#fStatusCli').value;
+  const lista = clientes.filter(c => (!st || String(!c.bloqueado) === st) && (!b || norm([c.nome, c.email, c.cidade, c.telefone, c.cpf].join(' ')).includes(b)));
   $('#tblClientes').innerHTML = lista.length ? `
-    <thead><tr><th>Nome</th><th>Contato</th><th>CPF</th><th>Cidade</th><th class="num">Pedidos</th><th>Desde</th><th>Situação</th></tr></thead>
+    <thead><tr><th>Nome</th><th>Contato</th><th>CPF</th><th>Cidade</th><th class="num">Pedidos</th><th>Desde</th><th>Status</th><th></th></tr></thead>
     <tbody>${lista.map(c => `<tr>
-      <td><b>${esc(c.nome)}</b></td>
+      <td><b>${esc(c.nome)}</b>${c.possui_login === false ? '<br><small class="muted" title="Cadastrado por planilha. Quando criar a conta na loja com este e-mail, o cadastro é ligado automaticamente.">sem login ainda</small>' : ''}</td>
       <td>${esc(c.email)}<br><small class="muted">${esc(c.telefone || '')}</small></td>
       <td>${esc(c.cpf || '—')}</td>
       <td>${esc([c.cidade, c.uf].filter(Boolean).join('/') || '—')}</td>
       <td class="num">${c.pedidos?.[0]?.count ?? 0}</td>
       <td>${new Date(c.criado_em).toLocaleDateString('pt-BR')}</td>
-      <td><button class="btn btn-sm ${c.bloqueado ? 'btn-bad' : 'btn-ghost'}" data-bloq="${c.id}" data-v="${!c.bloqueado}">
-        ${c.bloqueado ? 'Bloqueado — liberar' : 'Ativo — bloquear'}</button></td>
+      <td>${badgeStatus(!c.bloqueado)}</td>
+      <td>${botoesStatus('clientes', c.id, !c.bloqueado)}</td>
     </tr>`).join('')}</tbody>`
     : '<tr><td class="vazio">Nenhum cliente.</td></tr>';
 }
-$('#tblClientes').addEventListener('click', async e => {
-  const b = e.target.closest('[data-bloq]'); if (!b) return;
-  const bloquear = b.dataset.v === 'true';
-  if (bloquear && !confirm('Bloquear este cliente? Ele não conseguirá fazer novos pedidos.')) return;
-  const { error } = await sb.from('clientes').update({ bloqueado: bloquear }).eq('id', b.dataset.bloq);
-  if (error) return toast(erro(error), 'erro');
-  carregarClientes();
-});
+
 
 // ------------------------- geral -------------------------
 $$('dialog').forEach(d => d.addEventListener('click', e => {
