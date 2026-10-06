@@ -104,6 +104,7 @@ supabase/schema.sql banco de dados completo
 - **"Não foi possível carregar o catálogo"** → confira a URL e a chave em `js/config.js`.
 - **"Esta conta não tem acesso ao painel"** → faltou o passo 6.2 (ou o e-mail está diferente).
 - **Cliente não recebe o e-mail de confirmação** → limite do e-mail grátis do Supabase; configure SMTP ou desligue "Confirm email".
+- **Trocar a logomarca** → envie sua imagem com o nome `logo.png` para a mesma pasta do `index.html` (no GitHub: pasta `catalogo-oculos` → Add file → Upload files). Sem esse arquivo, aparece o nome da loja.
 - **Mudar cores do site** → edite as variáveis no começo de `css/style.css` (`--accent` é a cor principal).
 - **O Supabase avisa "Security Definer View" em `vw_catalogo`** → é proposital: é o que permite mostrar o catálogo sem expor o preço de custo.
 

@@ -6,8 +6,10 @@ window.APP_CONFIG = {
   SUPABASE_URL: 'https://pfxjfklcmccnfxxmhtod.supabase.co',
   SUPABASE_KEY: 'sb_publishable_Kcwaz6wOx86NnMhcaT5uxw__wNTFJ3s',   // "anon" ou "publishable" (NUNCA a service_role/secret)
 
-  nomeLoja: 'Minha Ótica',
-  whatsapp: '5562999560105',      // DDI+DDD+número, só dígitos. Deixe '' para esconder
+  nomeLoja: 'Invite',
+  logo: 'logo.png',               // arquivo da logomarca (mesma pasta do index.html). Sem o arquivo, mostra o nome
+
+  whatsapp: '5562999999999',      // DDI+DDD+número, só dígitos. Deixe '' para esconder
   parcelasSemJuros: 3,            // mostra "ou 3x de R$ ..." no catálogo
   formasPagamento: ['Pix', 'Cartão de crédito', 'Cartão de débito', 'Boleto', 'A combinar'],
 };
@@ -46,6 +48,20 @@ window.U = {
   },
   statusLabel: s => ({ pendente: 'Aguardando aprovação', aprovado: 'Aprovado', recusado: 'Recusado',
                        enviado: 'Enviado', entregue: 'Entregue', cancelado: 'Cancelado' }[s] || s),
+  // Mostra a logomarca (ou o nome da loja, se o arquivo não existir) e usa como ícone da aba
+  marca: (el, textoHtml) => {
+    el.innerHTML = textoHtml;
+    if (!APP_CONFIG.logo) return;
+    const im = new Image();
+    im.onload = () => {
+      im.className = 'logo-img'; im.alt = APP_CONFIG.nomeLoja;
+      el.replaceChildren(im);
+      let fav = document.querySelector('link[rel=icon]');
+      if (!fav) { fav = document.createElement('link'); fav.rel = 'icon'; document.head.appendChild(fav); }
+      fav.href = im.src;
+    };
+    im.src = APP_CONFIG.logo + '?v=' + Date.now().toString().slice(0, 7);
+  },
   // Preenche endereço pelo CEP (ViaCEP)
   bindCep: form => {
     const cep = form.elements.cep; if (!cep) return;

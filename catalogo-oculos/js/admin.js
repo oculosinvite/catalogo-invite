@@ -510,6 +510,6 @@ $('#tblClientes').addEventListener('click', async e => {
 $$('dialog').forEach(d => d.addEventListener('click', e => {
   if (e.target.closest('[data-close]')) d.close();
 }));
-$('#logoAdmin').textContent = CFG.nomeLoja;
+U.marca($('#logoAdmin'), esc(CFG.nomeLoja));
 document.title = `Painel — ${CFG.nomeLoja}`;
 verificarAcesso();

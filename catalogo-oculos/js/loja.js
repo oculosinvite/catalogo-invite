@@ -18,7 +18,7 @@ const salvarCarrinho = () => { try { localStorage.setItem('carrinho_oculos', JSO
 // ------------------------- início -------------------------
 async function init() {
   document.title = `${CFG.nomeLoja} — Catálogo de Óculos`;
-  $('#logo').innerHTML = esc(CFG.nomeLoja) + '<span>.</span>';
+  U.marca($('#logo'), esc(CFG.nomeLoja) + '<span>.</span>');
   $('#rodapeNome').textContent = CFG.nomeLoja;
   $('#cartPagamento').innerHTML = CFG.formasPagamento.map(f => `<option>${esc(f)}</option>`).join('');
 
