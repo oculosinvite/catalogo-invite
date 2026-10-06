@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Catálogo de Óculos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="logo" href="./" id="logo">Ótica</a>
+  <div class="search"><input id="busca" type="search" placeholder="Buscar por modelo, marca, cor, formato..."></div>
+  <div class="actions">
+    <button class="btn btn-ghost" id="btnConta">Entrar</button>
+    <button class="btn cart-btn" id="btnCarrinho" aria-label="Carrinho">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6h15l-1.5 9h-12z"/><path d="M6 6 5 3H2"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>
+      Carrinho <span class="badge-count" id="cartCount">0</span>
+    </button>
+  </div>
+</header>
+
+<section class="hero">
+  <h1>Encontre o óculos com a sua cara</h1>
+  <p>Escolha o modelo e a cor, monte seu pedido e a loja confirma com você.</p>
+</section>
+
+<nav class="chips" id="categorias"></nav>
+
+<section class="filtros">
+  <select id="fGenero"><option value="">Todos os gêneros</option><option>Masculino</option><option>Feminino</option><option>Unissex</option><option>Infantil</option></select>
+  <select id="fFormato"><option value="">Todos os formatos</option></select>
+  <label class="check"><input type="checkbox" id="fPolarizado"> Só polarizados</label>
+  <select id="fOrdem">
+    <option value="destaque">Destaques</option>
+    <option value="novos">Novidades</option>
+    <option value="menor">Menor preço</option>
+    <option value="maior">Maior preço</option>
+    <option value="nome">Nome (A-Z)</option>
+  </select>
+  <span class="total" id="totalProdutos"></span>
+</section>
+
+<main class="grid" id="grid"><p class="vazio" style="grid-column:1/-1">Carregando catálogo…</p></main>
+
+<footer class="rodape"><span id="rodapeNome"></span> · Pedidos sujeitos à confirmação da loja</footer>
+
+<!-- ===== Produto ===== -->
+<dialog id="dlgProduto">
+  <div class="dlg-head"><small class="muted" id="pCategoria"></small><button class="x" data-close>&times;</button></div>
+  <div class="dlg-body" id="pConteudo"></div>
+</dialog>
+
+<!-- ===== Carrinho ===== -->
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer" aria-label="Carrinho">
+  <div class="dlg-head"><h2 style="font-size:22px">Seu carrinho</h2><button class="x" id="fecharCarrinho">&times;</button></div>
+  <div class="drawer-list" id="cartLista"></div>
+  <div class="drawer-foot" id="cartFoot">
+    <div class="total-row"><span>Total</span><span id="cartTotal">R$ 0,00</span></div>
+    <label>Forma de pagamento <select id="cartPagamento"></select></label>
+    <label>Observação (opcional) <textarea id="cartObs" placeholder="Ex.: preciso para presente, prefiro retirar na loja..."></textarea></label>
+    <button class="btn btn-accent btn-block" id="btnFinalizar">Enviar pedido</button>
+    <small class="muted" style="text-align:center">O pedido será analisado pela loja. Você acompanha em “Minha conta”.</small>
+  </div>
+</aside>
+
+<!-- ===== Login / Cadastro ===== -->
+<dialog id="dlgAuth" class="sm">
+  <div class="dlg-head"><h2 style="font-size:22px">Sua conta</h2><button class="x" data-close>&times;</button></div>
+  <div class="dlg-body">
+    <div class="tabs"><button data-tab="login" class="on">Entrar</button><button data-tab="cadastro">Criar conta</button></div>
+    <div id="authMsg" class="msg hidden" style="margin-bottom:14px"></div>
+
+    <form id="formLogin" class="form-grid">
+      <label>E-mail <input name="email" type="email" required autocomplete="email"></label>
+      <label>Senha <input name="senha" type="password" required autocomplete="current-password"></label>
+      <button class="btn btn-block">Entrar</button>
+      <button type="button" class="link" id="btnEsqueci">Esqueci minha senha</button>
+    </form>
+
+    <form id="formCadastro" class="form-grid hidden">
+      <label>Nome completo <input name="nome" required autocomplete="name"></label>
+      <label class="c3">E-mail <input name="email" type="email" required autocomplete="email"></label>
+      <label class="c3">Senha (mín. 6) <input name="senha" type="password" minlength="6" required autocomplete="new-password"></label>
+      <label class="c3">WhatsApp / Telefone <input name="telefone" required inputmode="tel" placeholder="(62) 99999-9999"></label>
+      <label class="c3">CPF <input name="cpf" inputmode="numeric" placeholder="000.000.000-00"></label>
+      <label class="c2">CEP <input name="cep" inputmode="numeric" placeholder="00000-000"></label>
+      <label class="c4">Endereço <input name="endereco"></label>
+      <label class="c2">Número <input name="numero"></label>
+      <label class="c4">Complemento <input name="complemento"></label>
+      <label class="c3">Bairro <input name="bairro"></label>
+      <label class="c2">Cidade <input name="cidade"></label>
+      <label class="c2 keep" style="grid-column:span 1">UF <input name="uf" maxlength="2"></label>
+      <button class="btn btn-accent btn-block">Criar minha conta</button>
+    </form>
+  </div>
+</dialog>
+
+<!-- ===== Minha conta ===== -->
+<dialog id="dlgConta">
+  <div class="dlg-head"><h2 style="font-size:22px">Minha conta</h2><button class="x" data-close>&times;</button></div>
+  <div class="dlg-body">
+    <div class="tabs"><button data-tab="pedidos" class="on">Meus pedidos</button><button data-tab="dados">Meus dados</button></div>
+    <div id="contaPedidos"></div>
+    <form id="formDados" class="form-grid hidden">
+      <label>Nome completo <input name="nome" required></label>
+      <label class="c3">Telefone <input name="telefone"></label>
+      <label class="c3">CPF <input name="cpf"></label>
+      <label class="c2">CEP <input name="cep"></label>
+      <label class="c4">Endereço <input name="endereco"></label>
+      <label class="c2">Número <input name="numero"></label>
+      <label class="c4">Complemento <input name="complemento"></label>
+      <label class="c3">Bairro <input name="bairro"></label>
+      <label class="c2">Cidade <input name="cidade"></label>
+      <label class="c2 keep" style="grid-column:span 1">UF <input name="uf" maxlength="2"></label>
+      <button class="btn c3">Salvar dados</button>
+      <button type="button" class="btn btn-ghost c3" id="btnSair">Sair da conta</button>
+    </form>
+  </div>
+</dialog>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/loja.js"></script>
+</body>
+</html>

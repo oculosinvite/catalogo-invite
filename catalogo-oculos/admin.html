@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Painel — Catálogo de Óculos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ===== Login do admin ===== -->
+<section class="admin-login hidden" id="telaLogin">
+  <form class="box" id="formLogin">
+    <h1 style="font-size:28px">Painel da loja</h1>
+    <p class="muted" style="margin:0">Entre com a conta de administrador.</p>
+    <div id="loginMsg" class="msg erro hidden"></div>
+    <label>E-mail <input name="email" type="email" required autocomplete="email"></label>
+    <label>Senha <input name="senha" type="password" required autocomplete="current-password"></label>
+    <button class="btn btn-block">Entrar</button>
+    <a href="./" class="muted" style="font-size:13px;text-align:center">← voltar para a loja</a>
+  </form>
+</section>
+
+<!-- ===== Painel ===== -->
+<div class="admin hidden" id="telaPainel">
+  <nav class="side">
+    <a class="logo" href="./" target="_blank" id="logoAdmin">Ótica</a>
+    <button data-sec="dashboard" class="on">Resumo</button>
+    <button data-sec="pedidos">Pedidos <span class="pill" id="pillPendentes"></span></button>
+    <button data-sec="produtos">Produtos</button>
+    <button data-sec="estoque">Estoque</button>
+    <button data-sec="categorias">Categorias e marcas</button>
+    <button data-sec="clientes">Clientes</button>
+    <div class="bottom"><div id="adminEmail"></div><button class="link" id="btnSair" style="color:#cfcac2;padding:6px 0">Sair</button></div>
+  </nav>
+
+  <main class="main">
+    <!-- RESUMO -->
+    <section data-pane="dashboard">
+      <div class="main-head"><h1>Resumo</h1><button class="btn btn-ghost btn-sm" data-reload="dashboard">Atualizar</button></div>
+      <div class="kpis" id="kpis"></div>
+      <div class="det-grid">
+        <div class="panel"><h3>Estoque baixo</h3><div id="dashBaixo"></div></div>
+        <div class="panel"><h3>Mais vendidos</h3><div id="dashTop"></div></div>
+      </div>
+    </section>
+
+    <!-- PEDIDOS -->
+    <section data-pane="pedidos" class="hidden">
+      <div class="main-head">
+        <h1>Pedidos</h1>
+        <select id="fStatus" style="width:auto">
+          <option value="pendente">Aguardando aprovação</option>
+          <option value="aprovado">Aprovados</option>
+          <option value="enviado">Enviados</option>
+          <option value="entregue">Entregues</option>
+          <option value="recusado">Recusados</option>
+          <option value="cancelado">Cancelados</option>
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div class="tbl-wrap"><table class="tbl" id="tblPedidos"></table></div>
+    </section>
+
+    <!-- PRODUTOS -->
+    <section data-pane="produtos" class="hidden">
+      <div class="main-head">
+        <h1>Produtos</h1>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input id="buscaProd" type="search" placeholder="Buscar..." style="width:220px;margin:0">
+          <button class="btn btn-accent" id="btnNovoProd">+ Novo produto</button>
+        </div>
+      </div>
+      <div class="tbl-wrap"><table class="tbl" id="tblProdutos"></table></div>
+    </section>
+
+    <!-- ESTOQUE -->
+    <section data-pane="estoque" class="hidden">
+      <div class="main-head">
+        <h1>Estoque</h1>
+        <label class="check"><input type="checkbox" id="soBaixo"> Mostrar só estoque baixo</label>
+      </div>
+      <div class="tbl-wrap" style="margin-bottom:24px"><table class="tbl" id="tblEstoque"></table></div>
+      <h3 style="margin-bottom:10px">Últimas movimentações</h3>
+      <div class="tbl-wrap"><table class="tbl" id="tblMov"></table></div>
+    </section>
+
+    <!-- CATEGORIAS & MARCAS -->
+    <section data-pane="categorias" class="hidden">
+      <div class="main-head"><h1>Categorias e marcas</h1></div>
+      <div class="det-grid" style="grid-template-columns:1fr 1fr">
+        <div class="panel">
+          <h3>Categorias</h3>
+          <form id="formCat" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Nova categoria" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
+          <table class="tbl" id="tblCat"></table>
+        </div>
+        <div class="panel">
+          <h3>Marcas</h3>
+          <form id="formMarca" style="display:flex;gap:8px;margin-bottom:12px"><input name="nome" placeholder="Nova marca" required style="margin:0"><button class="btn btn-sm">Adicionar</button></form>
+          <table class="tbl" id="tblMarca"></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- CLIENTES -->
+    <section data-pane="clientes" class="hidden">
+      <div class="main-head"><h1>Clientes</h1><input id="buscaCli" type="search" placeholder="Buscar nome, e-mail, cidade..." style="width:260px;margin:0"></div>
+      <div class="tbl-wrap"><table class="tbl" id="tblClientes"></table></div>
+    </section>
+  </main>
+</div>
+
+<!-- ===== Formulário de produto ===== -->
+<dialog id="dlgProduto">
+  <form id="formProduto">
+    <div class="dlg-head"><h2 style="font-size:22px" id="tituloProduto">Novo produto</h2><button type="button" class="x" data-close>&times;</button></div>
+    <div class="dlg-body" style="display:grid;gap:18px">
+      <fieldset class="form-grid">
+        <legend>Informações</legend>
+        <label class="c4">Nome do modelo * <input name="nome" required></label>
+        <label class="c2">SKU / Referência * <input name="sku" required></label>
+        <label class="c2">Categoria <select name="categoria_id"></select></label>
+        <label class="c2">Marca <select name="marca_id"></select></label>
+        <label class="c2">Gênero <select name="genero"><option>Unissex</option><option>Masculino</option><option>Feminino</option><option>Infantil</option></select></label>
+        <label>Descrição <textarea name="descricao" placeholder="Conte os diferenciais do modelo"></textarea></label>
+      </fieldset>
+
+      <fieldset class="form-grid">
+        <legend>Características</legend>
+        <label class="c2">Formato <input name="formato" list="lFormato"></label>
+        <label class="c2">Material da armação <input name="material_armacao" list="lArmacao"></label>
+        <label class="c2">Material da lente <input name="material_lente" list="lLente"></label>
+        <label class="c2">Tipo de lente <input name="tipo_lente" list="lTipo"></label>
+        <label class="c2">Proteção UV <input name="protecao_uv" placeholder="UV400"></label>
+        <label class="c2 check" style="align-self:end;padding-bottom:10px"><input type="checkbox" name="polarizado"> Lente polarizada</label>
+        <label class="c2">Largura da lente (mm) <input name="largura_lente_mm" type="number" min="0"></label>
+        <label class="c2">Ponte (mm) <input name="ponte_mm" type="number" min="0"></label>
+        <label class="c2">Haste (mm) <input name="haste_mm" type="number" min="0"></label>
+        <label class="c2">Altura da lente (mm) <input name="altura_lente_mm" type="number" min="0"></label>
+        <label class="c2">Peso (g) <input name="peso_g" type="number" step="0.1" min="0"></label>
+        <label class="c2">Garantia (meses) <input name="garantia_meses" type="number" min="0"></label>
+        <label class="c2">NCM (nota fiscal) <input name="ncm" placeholder="9004.10.00"></label>
+      </fieldset>
+
+      <fieldset class="form-grid">
+        <legend>Preços</legend>
+        <label class="c2">Preço de custo (R$) <input name="preco_custo" type="number" step="0.01" min="0" required></label>
+        <label class="c2">Preço de venda (R$) * <input name="preco_venda" type="number" step="0.01" min="0.01" required></label>
+        <label class="c2">Preço promocional (R$) <input name="preco_promocional" type="number" step="0.01" min="0"></label>
+        <div class="margem" id="margemInfo">Informe custo e venda para ver a margem.</div>
+      </fieldset>
+
+      <fieldset class="form-grid">
+        <legend>Foto principal e exibição</legend>
+        <div class="c2"><img id="fotoPrev" class="foto-prev" alt=""></div>
+        <label class="c4">Escolher foto (JPG/PNG/WebP) <input type="file" name="foto" accept="image/*"></label>
+        <label class="c3 check"><input type="checkbox" name="destaque"> Destaque no catálogo</label>
+        <label class="c3 check"><input type="checkbox" name="ativo" checked> Ativo (aparece na loja)</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Cores / variações (cada uma com SKU, foto e estoque)</legend>
+        <div style="overflow-x:auto">
+          <table class="tbl cores-edit">
+            <thead><tr><th></th><th>Cor *</th><th>Cor da lente</th><th>SKU *</th><th>Estoque</th><th>Mín.</th><th>Foto</th><th>Ativa</th><th></th></tr></thead>
+            <tbody id="coresBody"></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnAddCor" style="margin-top:10px">+ Adicionar cor</button>
+        <p class="muted" style="font-size:13px;margin:8px 0 0">O estoque de cores já cadastradas é alterado pela aba <b>Estoque</b> (fica registrado no histórico).</p>
+      </fieldset>
+    </div>
+    <div class="dlg-head" style="position:sticky;bottom:0;border-top:1px solid var(--line);border-bottom:0;justify-content:flex-end;gap:8px">
+      <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+      <button class="btn btn-accent" id="btnSalvarProd">Salvar produto</button>
+    </div>
+  </form>
+</dialog>
+
+<datalist id="lFormato"><option>Aviador</option><option>Redondo</option><option>Quadrado</option><option>Retangular</option><option>Gatinho</option><option>Oversized</option><option>Hexagonal</option><option>Clubmaster</option><option>Esportivo</option><option>Máscara</option></datalist>
+<datalist id="lArmacao"><option>Acetato</option><option>Metal</option><option>TR90</option><option>Titânio</option><option>Aço inox</option><option>Policarbonato</option><option>Madeira</option></datalist>
+<datalist id="lLente"><option>Policarbonato</option><option>Nylon</option><option>Cristal</option><option>CR-39</option><option>Acrílico</option></datalist>
+<datalist id="lTipo"><option>Solar</option><option>Receituário (grau)</option><option>Proteção luz azul</option><option>Fotossensível</option><option>Espelhada</option></datalist>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
