@@ -99,6 +99,13 @@ js/admin.js         lógica do painel
 supabase/schema.sql banco de dados completo
 ```
 
+## Clientes e pedidos pelo painel
+
+- **Clientes → + Novo cliente:** cadastro manual (e-mail opcional, endereço pelo CEP, observações internas que o cliente não vê).
+- **Abrir** um cliente mostra a ficha: endereço completo, botões de mapa, WhatsApp e copiar endereço, e a aba **Pedidos** com o histórico.
+- **Pedidos → + Novo pedido** (ou "Novo pedido para este cliente" na ficha): escolha o cliente, os produtos/cores, quantidade e preço (pode ajustar), forma de pagamento e parcelas. Marque "Aprovar agora" para já baixar o estoque.
+- No detalhe de um pedido: **Ver cliente** e **Trocar cliente** (pedidos pendentes ou aprovados).
+
 ## Configurações (painel → Configurações)
 
 - **Exibição de preços:** mostrar para todos, só para clientes logados, ou não mostrar. O preço é escondido no servidor (não chega ao navegador de quem não pode ver). Com "não mostrar", o cliente vê o valor do pedido depois que a loja aprova.

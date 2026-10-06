@@ -115,7 +115,7 @@ async function carregarPedidos() {
       const zap = (p.clientes?.telefone || '').replace(/\D/g, '');
       return `
       <tr>
-        <td><b>${p.id}</b></td>
+        <td><b>${p.id}</b>${p.origem === 'painel' ? '<br><small class="muted" title="Criado no painel">painel</small>' : ''}</td>
         <td>${data(p.criado_em)}</td>
         <td>${esc(p.clientes?.nome)}<br><small class="muted">${esc(p.clientes?.email)}</small></td>
         <td>${pecas} peça(s)</td>
@@ -140,6 +140,7 @@ async function carregarPedidos() {
             <b>Entrega</b>
             <span>${esc(end.endereco || '')} ${esc(end.numero || '')} ${esc(end.complemento || '')}</span>
             <span>${esc(end.bairro || '')} — ${esc(end.cidade || '')}/${esc(end.uf || '')} ${esc(end.cep || '')}</span>
+            ${U.enderecoTexto(end) ? `<span><a href="${U.linkMapa(end)}" target="_blank" rel="noopener">Abrir no mapa</a></span>` : ''}
             <span>Tel.: ${esc(p.clientes?.telefone || '—')} ${zap ? `· <a href="https://wa.me/55${zap.replace(/^55/, '')}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</span>
             <span>CPF: ${esc(p.clientes?.cpf || '—')}</span>
             <span>Pagamento: <b>${esc(p.forma_pagamento || '—')}${p.parcelas > 1 ? ` · ${p.parcelas}x de ${fmt(p.valor_parcela)}` : ''}</b></span>
@@ -147,6 +148,10 @@ async function carregarPedidos() {
             ${p.codigo_rastreio ? `<span>Rastreio: <b>${esc(p.codigo_rastreio)}</b></span>` : ''}
             ${p.aprovado_em ? `<span class="muted">Aprovado em ${data(p.aprovado_em)}</span>` : ''}
             <div class="row-actions" style="margin-top:10px">${acoesPedido(p)}</div>
+            <div class="row-actions">
+              <button class="btn btn-ghost btn-sm" data-ficha="${p.cliente_id}">Ver cliente</button>
+              ${['pendente', 'aprovado'].includes(p.status) ? `<button class="btn btn-ghost btn-sm" data-trocar-cli="${p.id}">Trocar cliente</button>` : ''}
+            </div>
           </div>
         </div>
       </td></tr>`;
@@ -667,7 +672,7 @@ $('#buscaCli').oninput = renderClientes;
 $('#fStatusCli').onchange = renderClientes;
 
 async function carregarClientes() {
-  const { data: lista, error } = await sb.from('clientes').select('*, pedidos(count)').order('criado_em', { ascending: false });
+  const { data: lista, error } = await sb.rpc('admin_listar_clientes');
   if (error) return toast(erro(error), 'erro');
   clientes = lista; renderClientes();
 }
@@ -675,18 +680,17 @@ async function carregarClientes() {
 function renderClientes() {
   const b = norm($('#buscaCli').value);
   const st = $('#fStatusCli').value;
-  const lista = clientes.filter(c => (!st || String(!c.bloqueado) === st) && (!b || norm([c.nome, c.email, c.cidade, c.telefone, c.cpf].join(' ')).includes(b)));
+  const lista = clientes.filter(c => (!st || String(!c.bloqueado) === st) &&
+    (!b || norm([c.nome, c.email, c.cidade, c.bairro, c.endereco, c.telefone, c.cpf].join(' ')).includes(b)));
   $('#tblClientes').innerHTML = lista.length ? `
-    <thead><tr><th>Nome</th><th>Contato</th><th>CPF</th><th>Cidade</th><th class="num">Pedidos</th><th>Desde</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>Nome</th><th>Contato</th><th>Endereço</th><th class="num">Pedidos</th><th>Status</th><th></th></tr></thead>
     <tbody>${lista.map(c => `<tr>
-      <td><b>${esc(c.nome)}</b>${c.possui_login === false ? '<br><small class="muted" title="Cadastrado por planilha. Quando criar a conta na loja com este e-mail, o cadastro é ligado automaticamente.">sem login ainda</small>' : ''}</td>
-      <td>${esc(c.email)}<br><small class="muted">${esc(c.telefone || '')}</small></td>
-      <td>${esc(c.cpf || '—')}</td>
-      <td>${esc([c.cidade, c.uf].filter(Boolean).join('/') || '—')}</td>
-      <td class="num">${c.pedidos?.[0]?.count ?? 0}</td>
-      <td>${new Date(c.criado_em).toLocaleDateString('pt-BR')}</td>
+      <td><button class="link" data-ficha="${c.id}" style="font-weight:700;color:var(--ink);text-align:left">${esc(c.nome)}</button>${c.possui_login === false ? '<br><small class="muted" title="Sem conta na loja. Se criar a conta com o mesmo e-mail, o cadastro é ligado automaticamente.">sem login</small>' : ''}${c.observacoes ? ` <span title="${esc(c.observacoes)}">📝</span>` : ''}</td>
+      <td>${esc(c.email || '—')}<br><small class="muted">${esc(c.telefone || '')}</small></td>
+      <td style="font-size:13px;max-width:280px">${U.enderecoTexto(c) ? esc(U.enderecoTexto(c)) : '<span class="muted">—</span>'}</td>
+      <td class="num">${c.pedidos_qtd ?? 0}</td>
       <td>${badgeStatus(!c.bloqueado)}</td>
-      <td>${botoesStatus('clientes', c.id, !c.bloqueado)}</td>
+      <td><div class="acoes"><button class="btn btn-sm" data-ficha="${c.id}">Abrir</button>${botoesStatus('clientes', c.id, !c.bloqueado)}</div></td>
     </tr>`).join('')}</tbody>`
     : '<tr><td class="vazio">Nenhum cliente.</td></tr>';
 }

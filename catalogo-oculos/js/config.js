@@ -95,6 +95,17 @@ window.U = {
     const f = formas.filter(f => Number(f.desconto_percentual) > 0).sort((a, b) => b.desconto_percentual - a.desconto_percentual)[0];
     return f ? { ...U.calcPagamento(preco, f, 1), forma: f.nome, pct: Number(f.desconto_percentual) } : null;
   },
+  // "Rua X, 10 - Apto 2 - Centro, Goiânia/GO - CEP 74000-000"
+  enderecoTexto: o => {
+    if (!o) return '';
+    const rua = [o.endereco, o.numero].filter(Boolean).join(', ');
+    const cid = [o.cidade, o.uf].filter(Boolean).join('/');
+    return [rua, o.complemento, [o.bairro, cid].filter(Boolean).join(', '), o.cep ? 'CEP ' + o.cep : '']
+      .filter(Boolean).join(' - ');
+  },
+  linkMapa: o => 'https://www.google.com/maps/search/?api=1&query=' +
+    encodeURIComponent([o.endereco, o.numero, o.bairro, o.cidade, o.uf, o.cep].filter(Boolean).join(', ')),
+  linkZap: tel => { const n = String(tel || '').replace(/\D/g, ''); return n.length >= 10 ? 'https://wa.me/' + (n.startsWith('55') ? n : '55' + n) : ''; },
   // Preenche endereço pelo CEP (ViaCEP)
   bindCep: form => {
     const cep = form.elements.cep; if (!cep) return;

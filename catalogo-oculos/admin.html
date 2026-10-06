@@ -55,6 +55,7 @@
         <h1>Pedidos</h1>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-ghost btn-sm" data-exportar="pedidos" title="Baixar planilha Excel">⬇ Exportar</button>
+        <button class="btn btn-accent" id="btnNovoPedido">+ Novo pedido</button>
         <select id="fStatus" style="width:auto;margin:0">
           <option value="pendente">Aguardando aprovação</option>
           <option value="aprovado">Aprovados</option>
@@ -172,7 +173,7 @@
 
     <!-- CLIENTES -->
     <section data-pane="clientes" class="hidden">
-      <div class="main-head"><h1>Clientes</h1><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn btn-ghost btn-sm" data-exportar="clientes" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="clientes" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="clientes" title="Planilha em branco com instruções">Modelo</button><select id="fStatusCli" style="width:auto;margin:0"><option value="">Todos</option><option value="true">Ativos</option><option value="false">Inativos</option></select><input id="buscaCli" type="search" placeholder="Buscar nome, e-mail, cidade..." style="width:260px;margin:0"></div></div>
+      <div class="main-head"><h1>Clientes</h1><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn btn-ghost btn-sm" data-exportar="clientes" title="Baixar planilha Excel">⬇ Exportar</button><button class="btn btn-ghost btn-sm" data-importar="clientes" title="Cadastrar/atualizar a partir de planilha">⬆ Importar</button><button class="btn btn-ghost btn-sm" data-modelo="clientes" title="Planilha em branco com instruções">Modelo</button><select id="fStatusCli" style="width:auto;margin:0"><option value="">Todos</option><option value="true">Ativos</option><option value="false">Inativos</option></select><input id="buscaCli" type="search" placeholder="Buscar nome, e-mail, cidade..." style="width:260px;margin:0"><button class="btn btn-accent" id="btnNovoCliente">+ Novo cliente</button></div></div>
       <div class="tbl-wrap"><table class="tbl" id="tblClientes"></table></div>
     </section>
   </main>
@@ -246,6 +247,79 @@
 </dialog>
 
 
+<!-- ===== Ficha do cliente ===== -->
+<dialog id="dlgCliente">
+  <div class="dlg-head"><h2 style="font-size:22px" id="cliTitulo">Novo cliente</h2><button type="button" class="x" data-close>&times;</button></div>
+  <div class="dlg-body">
+    <div id="cliResumo"></div>
+    <div class="tabs" id="cliTabs"><button type="button" data-tab="dados" class="on">Dados e endereço</button><button type="button" data-tab="pedidos">Pedidos</button></div>
+    <form id="formCliente" class="form-grid">
+      <label>Nome completo * <input name="nome" required></label>
+      <label class="c3">E-mail <input name="email" type="email" placeholder="opcional"></label>
+      <label class="c3">Telefone / WhatsApp <input name="telefone" inputmode="tel"></label>
+      <label class="c3">CPF <input name="cpf" inputmode="numeric"></label>
+      <label class="c3">Nascimento <input name="data_nascimento" type="date"></label>
+      <label class="c2">CEP <input name="cep" inputmode="numeric" placeholder="preenche o endereço"></label>
+      <label class="c4">Endereço <input name="endereco"></label>
+      <label class="c2">Número <input name="numero"></label>
+      <label class="c4">Complemento <input name="complemento"></label>
+      <label class="c3">Bairro <input name="bairro"></label>
+      <label class="c2">Cidade <input name="cidade"></label>
+      <label class="c2 keep" style="grid-column:span 1">UF <input name="uf" maxlength="2"></label>
+      <label>Observações internas <small class="muted">(só a loja vê)</small> <textarea name="observacoes" placeholder="Ex.: grau, preferências, forma de contato..."></textarea></label>
+      <label class="check"><input type="checkbox" name="ativo" checked> Cliente ativo (pode fazer pedidos)</label>
+      <div class="c3"><button class="btn btn-accent btn-block" id="btnSalvarCli">Salvar cliente</button></div>
+    </form>
+    <div id="cliPedidos" class="hidden"></div>
+  </div>
+</dialog>
+
+<!-- ===== Escolher cliente ===== -->
+<dialog id="dlgEscolherCli" class="sm">
+  <div class="dlg-head"><h2 style="font-size:20px">Escolher cliente</h2><button type="button" class="x" data-close>&times;</button></div>
+  <div class="dlg-body" style="display:grid;gap:10px">
+    <div style="display:flex;gap:8px"><input id="escBusca" type="search" placeholder="Nome, telefone, e-mail, CPF ou cidade" style="margin:0">
+      <button type="button" class="btn btn-sm" id="escNovo">+ Novo</button></div>
+    <div id="escLista" style="max-height:55vh;overflow:auto;display:grid;gap:6px"></div>
+  </div>
+</dialog>
+
+<!-- ===== Novo pedido (painel) ===== -->
+<dialog id="dlgNovoPedido">
+  <div class="dlg-head"><h2 style="font-size:22px">Novo pedido</h2><button type="button" class="x" data-close>&times;</button></div>
+  <div class="dlg-body" style="display:grid;gap:16px">
+    <fieldset>
+      <legend>Cliente</legend>
+      <div id="npCliente" class="muted">Nenhum cliente escolhido.</div>
+      <div style="display:flex;gap:8px;margin-top:10px"><button type="button" class="btn btn-sm" id="npEscolher">Escolher cliente</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="npNovoCli">+ Cadastrar novo cliente</button></div>
+    </fieldset>
+    <fieldset>
+      <legend>Produtos</legend>
+      <div class="form-grid" style="align-items:end">
+        <label class="c3">Buscar produto <input id="npBusca" type="search" placeholder="nome, cor ou SKU"></label>
+        <label class="c3">Produto / cor <select id="npCor"></select></label>
+        <label class="c2">Quantidade <input id="npQtd" type="number" min="1" value="1"></label>
+        <label class="c2">Preço unitário (R$) <input id="npPreco" type="number" step="0.01" min="0"></label>
+        <div class="c2"><button type="button" class="btn btn-block" id="npAdd">Adicionar</button></div>
+      </div>
+      <div style="overflow-x:auto;margin-top:12px"><table class="tbl" id="npItens"></table></div>
+    </fieldset>
+    <fieldset class="form-grid">
+      <legend>Pagamento</legend>
+      <label class="c3">Forma de pagamento <select id="npForma"></select></label>
+      <label class="c3" id="npLblParc">Parcelamento <select id="npParcelas"></select></label>
+      <label>Observação <textarea id="npObs" placeholder="Ex.: venda no balcão, entrega na terça..."></textarea></label>
+      <div id="npResumo" style="display:grid;gap:4px;font-size:14px"></div>
+      <label class="check"><input type="checkbox" id="npAprovar" checked> Aprovar agora e dar baixa no estoque</label>
+    </fieldset>
+  </div>
+  <div class="dlg-head" style="position:sticky;bottom:0;border-top:1px solid var(--line);border-bottom:0;justify-content:flex-end;gap:8px">
+    <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+    <button type="button" class="btn btn-accent" id="npCriar">Criar pedido</button>
+  </div>
+</dialog>
+
 <!-- ===== Importar planilha ===== -->
 <dialog id="dlgImport">
   <div class="dlg-head"><h2 style="font-size:22px" id="impTitulo">Importar</h2><button type="button" class="x" data-close>&times;</button></div>
@@ -263,5 +337,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/planilhas.js"></script>
+<script src="js/painel-clientes-pedidos.js"></script>
 </body>
 </html>

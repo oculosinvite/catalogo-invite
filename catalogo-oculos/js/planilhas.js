@@ -68,6 +68,7 @@ const COLS = {
     ['cidade', 'Cidade', '', ''],
     ['uf', 'UF', '', 'Sigla do estado. Ex.: GO'],
     ['ativo', 'Ativo', '', 'Sim ou Não (inativo não consegue fazer pedidos).'],
+    ['observacoes', 'Observações', '', 'Anotações internas (o cliente não vê).'],
     ['possui_login', 'Possui login', '', 'Apenas informativo. Cliente importado cria o login na loja com o mesmo e-mail.', true],
     ['pedidos', 'Pedidos', '', 'Apenas informativo.', true],
     ['criado_em', 'Cadastrado em', '', 'Apenas informativo.', true],
@@ -128,9 +129,10 @@ const LINHAS = {
       estoque_minimo: c.estoque_minimo, custo: c.produtos?.preco_custo, valor: c.estoque * (c.produtos?.preco_custo || 0) }));
   },
   async clientes() {
-    const { data, error } = await sb.from('clientes').select('*, pedidos(count)').order('nome');
+    const { data, error } = await sb.rpc('admin_listar_clientes');
     if (error) throw error;
-    return data.map(c => ({ ...c, ativo: !c.bloqueado, pedidos: c.pedidos?.[0]?.count ?? 0,
+    data.sort((a, b) => a.nome.localeCompare(b.nome));
+    return data.map(c => ({ ...c, ativo: !c.bloqueado, pedidos: c.pedidos_qtd ?? 0,
       data_nascimento: c.data_nascimento ? c.data_nascimento.split('-').reverse().join('/') : '',
       criado_em: new Date(c.criado_em).toLocaleDateString('pt-BR') }));
   },
